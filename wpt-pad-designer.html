@@ -186,6 +186,8 @@ details.notes summary::-webkit-details-marker{display:none}
         <input type="range" id="dx" min="-80" max="80" step="1" value="0">
         <label style="margin-top:12px">水平偏心 Y（前后） <span id="dyv" class="val" style="float:right">0 mm</span></label>
         <input type="range" id="dy" min="-80" max="80" step="1" value="0">
+        <label style="margin-top:12px">接收端倾斜角 <span id="tiltv" class="val" style="float:right">0.0°</span></label>
+        <input type="range" id="tilt" min="0" max="3" step="0.5" value="0">
       </div>
     </section>
 
@@ -198,6 +200,15 @@ details.notes summary::-webkit-details-marker{display:none}
           <button data-v="circ" class="on">圆形</button>
           <button data-v="sq">方形</button>
           <button data-v="dd">DD</button>
+        </div>
+      </div>
+
+      <div class="grp">
+        <label>补偿拓扑</label>
+        <div class="seg" id="topoSel">
+          <button data-v="ss" class="on">SS</button>
+          <button data-v="lcc">LCC-LCC</button>
+          <button data-v="slcc">S-LCC</button>
         </div>
       </div>
 
@@ -311,6 +322,12 @@ details.notes summary::-webkit-details-marker{display:none}
     </div>
 
     <div class="rsec">
+      <div class="rsech">补偿拓扑与失谐 <span class="tag ok" id="topoTag" style="margin-left:auto">SS</span></div>
+      <table class="tbl" id="topoTbl"></table>
+      <div class="note" style="margin-top:6px">谐振元件按当前工作频率的基波标称参数计算；失谐按 L、M 同时 ±5% 漂移（间隙/温升/磁板批次）评估，补偿元件固定为标称值。</div>
+    </div>
+
+    <div class="rsec">
       <div class="rsech">损耗 · 效率 · 温升</div>
       <table class="tbl" id="loss"></table>
     </div>
@@ -365,18 +382,19 @@ details.notes summary::-webkit-details-marker{display:none}
           <option value="delta">水平偏心 0–80 mm</option>
           <option value="P">传输功率 500–10000 W</option>
           <option value="freq">工作频率 20–140 kHz</option>
+          <option value="heat">二维热图：Z 间隙 × 拼块边长</option>
         </select>
         <button class="btn" id="cmpClose">关闭</button>
       </div>
     </div>
     <canvas id="cmpChart"></canvas>
-    <div class="mlegend">
+    <div class="mlegend" id="cmpLegend">
       <span><i style="background:#19e08a"></i>耦合系数 k</span>
       <span><i style="background:#56a8ff"></i>充电效率 %</span>
       <span><i style="background:#f5b93b"></i>铝板表面温度 ℃</span>
     </div>
     <table class="tbl" id="cmpTable"></table>
-    <div class="note" style="margin-top:8px">扫描以当前工程参数为基准逐点重算解析模型，只改变所选参数，其余条件保持不变。</div>
+    <div class="note" id="cmpNote" style="margin-top:8px">扫描以当前工程参数为基准逐点重算解析模型，只改变所选参数，其余条件保持不变。</div>
   </div>
 </div>
 
@@ -457,6 +475,80 @@ function misFactor(N,Ri,Ro,z,delta){
   return m0>1e-12?clamp(m1/m0,0,1):1;
 }
 
+/* ---------- 补偿拓扑：基波阻抗模型 ---------- */
+const cx=(r,i=0)=>({r,i});
+const cadd=(a,b)=>cx(a.r+b.r,a.i+b.i);
+const csub=(a,b)=>cx(a.r-b.r,a.i-b.i);
+const cmul=(a,b)=>cx(a.r*b.r-a.i*b.i,a.r*b.i+a.i*b.r);
+const cdiv=(a,b)=>{const t=b.r*b.r+b.i*b.i;return cx((a.r*b.r+a.i*b.i)/t,(a.i*b.r-a.r*b.i)/t);};
+const cabs=a=>Math.hypot(a.r,a.i);
+/* 复系数高斯消元 */
+function csolve(A,b){
+  const n=b.length;
+  for(let i=0;i<n;i++){
+    let p=i;
+    for(let k=i+1;k<n;k++) if(cabs(A[k][i])>cabs(A[p][i])) p=k;
+    if(cabs(A[p][i])<1e-15) return null;
+    if(p!==i){ const t=A[i];A[i]=A[p];A[p]=t; const tb=b[i];b[i]=b[p];b[p]=tb; }
+    for(let k=i+1;k<n;k++){
+      const f=cdiv(A[k][i],A[i][i]);
+      if(cabs(f)<1e-18) continue;
+      for(let q=i;q<n;q++) A[k][q]=csub(A[k][q],cmul(f,A[i][q]));
+      b[k]=csub(b[k],cmul(f,b[i]));
+    }
+  }
+  const x=new Array(n);
+  for(let i=n-1;i>=0;i--){
+    let s=b[i];
+    for(let q=i+1;q<n;q++) s=csub(s,cmul(A[i][q],x[q]));
+    x[i]=cdiv(s,A[i][i]);
+  }
+  return x;
+}
+const TOPO_NAME={ss:'SS 串-串',lcc:'LCC-LCC 双端',slcc:'S-LCC 单端'};
+/* 标称补偿元件：LCC 取 Lf=0.6L（0.2–0.9L 扫描中额定点线圈电流最匹配）、Cf=1/(ω²Lf)、串联 C=1/(ω²(L−Lf)) */
+function topoDesign(t,L,w){
+  const Lf=0.6*L;
+  if(t==='lcc') return {Lf,Cf:1/(w*w*Lf),C1:1/(w*w*(L-Lf)),C2:1/(w*w*(L-Lf))};
+  if(t==='slcc') return {Lf,Cf:1/(w*w*Lf),C1:1/(w*w*L),C2:1/(w*w*(L-Lf))};
+  return {Lf:0,Cf:0,C1:1/(w*w*L),C2:1/(w*w*L)};
+}
+/* 单点求解（回路电流法）：对称双板 L1=L2=L，串联等效损耗电阻 R，负载 RL，输入基波幅值 vin */
+function topoSim(t,L,M,w,c,RL,R,vin){
+  const zL1=cx(R,w*L), zL2=cx(R,w*L);
+  const zC1=cx(0,-1/(w*c.C1)), zC2=cx(0,-1/(w*c.C2));
+  const jwM=cx(0,w*M), V=cx(vin);
+  const Zs1=cadd(zL1,zC1), Zs2=cadd(zL2,zC2);
+  let x,i1,is1;
+  if(t==='ss'){
+    x=csolve([[Zs1,jwM],[jwM,cadd(Zs2,cx(RL))]],[V,cx(0)]);
+    if(!x) return {eta:0,P:0};
+    i1=x[0]; is1=x[1];
+  }else if(t==='lcc'){
+    const zLf=cx(0,w*c.Lf), zCf=cx(0,-1/(w*c.Cf));
+    x=csolve([
+      [cadd(zLf,Zs1),csub(cx(0),Zs1),jwM,csub(cx(0),jwM)],
+      [csub(cx(0),Zs1),cadd(zCf,Zs1),csub(cx(0),jwM),jwM],
+      [jwM,csub(cx(0),jwM),cadd(cadd(cx(RL),zLf),Zs2),csub(cx(0),Zs2)],
+      [csub(cx(0),jwM),jwM,csub(cx(0),Zs2),cadd(zCf,Zs2)]
+    ],[V,cx(0),cx(0),cx(0)]);
+    if(!x) return {eta:0,P:0};
+    i1=x[0]; is1=x[2];
+  }else{
+    const zLf=cx(0,w*c.Lf), zCf=cx(0,-1/(w*c.Cf));
+    x=csolve([
+      [Zs1,jwM,csub(cx(0),jwM)],
+      [jwM,cadd(cadd(cx(RL),zLf),Zs2),csub(cx(0),Zs2)],
+      [csub(cx(0),jwM),csub(cx(0),Zs2),cadd(zCf,Zs2)]
+    ],[V,cx(0),cx(0)]);
+    if(!x) return {eta:0,P:0};
+    i1=x[0]; is1=x[1];
+  }
+  const Pin=vin*i1.r, Pout=Math.pow(cabs(is1),2)*RL;
+  const eta=(isFinite(Pin)&&Pin>0&&isFinite(Pout))?100*Pout/Pin:0;
+  return {eta:clamp(eta,0,100),P:Pout};
+}
+
 function compute(inp){
   const P=inp.P, w=2*Math.PI*inp.freq, shape=inp.shape;
   const FM=FER_MAT[inp.ferMat]||FER_MAT.pc95, AM=ALU_MAT[inp.aluMat]||ALU_MAT['6061'];
@@ -466,6 +558,12 @@ function compute(inp){
   let OD=clamp(250*Math.pow(P/3000,0.25)*Math.pow(g/30,0.22)*sFac,90,900);
   const ID=Math.round(OD*(shape==='circ'?0.48:0.30));
   OD=Math.round(OD);
+
+  /* 1b) 接收端倾斜：按圆盘间隙 RMS 折算等效间隙（倾斜越大，边缘气隙越远） */
+  const tilt=+inp.tilt||0;
+  const gEff=tilt>0.01
+    ? Math.sqrt(g*g+Math.pow(OD/2*Math.tan(tilt*Math.PI/180),2)/4)
+    : g;
 
   /* 2) 磁板 / 铝板 / 外壳 */
   const margin=Math.max(15,Math.round(0.1*OD));
@@ -487,9 +585,9 @@ function compute(inp){
   /* 4) 耦合系数经验式（由 20/30/50mm 三点拟合）× 偏心衰减 */
   const dx=+inp.dx||0, dy=+inp.dy||0;
   const delta=Math.hypot(dx,dy);
-  const kg=1/(1+17*Math.pow(g/Math.max(OD,1),1.667));
+  const kg=1/(1+17*Math.pow(gEff/Math.max(OD,1),1.667));
   const kd=(shape==='dd')?1.08:(shape==='sq'?0.97:1.0);
-  const fmis=n=>misFactor(n,ID/2,OD/2,g,delta);
+  const fmis=n=>misFactor(n,ID/2,OD/2,gEff,delta);
   let k=clamp(kg*kd*fmis(N),0.03,0.92);
   let M=k*L;
 
@@ -530,7 +628,7 @@ function compute(inp){
   const Pcu=Im*Im*Rcu;
 
   /* 7) 磁密与饱和裕度 */
-  const Bmax=MU0*N*Im/(g*1e-3)*1e3;             /* mT */
+  const Bmax=MU0*N*Im/(gEff*1e-3)*1e3;             /* mT */
   const satMargin=FM.bs*1e3/Math.max(Bmax,0.01);
 
   /* 7b) 电磁暴露（EMF）：磁偶极子估算 20/30 cm 处磁密，ICNIRP 85 kHz 公众 27 µT */
@@ -540,7 +638,7 @@ function compute(inp){
 
   /* 8) 铝板涡流损耗（3kW/5mm 磁板标定 78.4W；材料与拼缝修正） */
   const fFer=Math.pow(inp.tf/5,-0.357);
-  const fGapLoss=Math.pow(30/g,0.5);
+  const fGapLoss=Math.pow(30/gEff,0.5);
   const fTile=Math.pow(2.0/F,2);
   const fAlu=Math.sqrt(3.55e7/AM.sig);
   const fMisAlu=Math.min(1.8,1+0.6*Math.pow(delta/Math.max(OD/2,1),2));  /* 偏心使漏磁外扩，铝板涡流增大 */
@@ -570,6 +668,29 @@ function compute(inp){
   const etaCoil=100*P/(P+Ploss);                           /* 线圈-线圈 */
   const etaSys=etaCoil*0.95;                               /* 含逆变/整流估算 */
 
+  /* 10b) 补偿拓扑元件 + 失谐灵敏度（L/M 同时 ±5% 漂移，元件按标称值固定） */
+  const topo=inp.topo||'ss';
+  const topoC=topoDesign(topo,L,w);
+  const RL=P/Math.max(Im*Im,1e-6);
+  const Req=Rcu+(Peddy+Pcore)/Math.max(Im*Im,1e-6);        /* 含铝板涡流与磁板铁损的等效串联电阻 */
+  const det={};
+  ['ss','lcc','slcc'].forEach(t=>{
+    const c=topoDesign(t,L,w);
+    const s0=topoSim(t,L,M,w,c,RL,Req,1);
+    const vin=Math.sqrt(P/Math.max(s0.P,1e-9));
+    const pts=[-5,0,5].map(dp=>{
+      const sf=1+dp/100;
+      const r=topoSim(t,L*sf,M*sf,w,c,RL,Req,vin);
+      return {dp,eta:r.eta,P:r.P};
+    });
+    const load={};
+    [0.5,1.5].forEach(f=>{
+      const r=topoSim(t,L,M,w,c,RL*f,Req,vin);
+      load[f]={eta:r.eta,P:r.P};
+    });
+    det[t]={pts,load,vin};
+  });
+
   /* 11) 结构 */
   const coilH=4, ins=0.2, tim=0.5, base=1.5, shell=3;
   const stack=shell+coilH+ins+inp.tf+tim+inp.ta+base+finH;
@@ -584,7 +705,8 @@ function compute(inp){
     {n:'加散热筋后温升',v:dTfin.toFixed(0)+' ℃',lim:'≤ 55 ℃',ok:dTfin<=55},
     {n:'散热筋表面温度',v:finT.toFixed(0)+' °C',lim:'≤ 70 °C（接触安全）',ok:finT<=70},
     {n:'水平偏心 δ',v:delta.toFixed(0)+' mm',lim:'≤ '+(0.15*OD).toFixed(0)+' mm（15% OD）',ok:delta<=0.15*OD},
-    {n:'间隙 / 外径',v:(g/OD*100).toFixed(1)+' %',lim:'≤ 25 %',ok:g/OD<=0.25},
+    {n:'接收端倾斜',v:tilt.toFixed(1)+'°',lim:'≤ 2°（姿态要求）',ok:tilt<=2},
+    {n:'间隙 / 外径',v:(gEff/OD*100).toFixed(1)+' %',lim:'≤ 25 %',ok:gEff/OD<=0.25},
     {n:'耦合系数 k',v:k.toFixed(3),lim:'≥ 0.35',ok:k>=0.35},
     {n:'充电效率（线圈-线圈）',v:etaCoil.toFixed(1)+' %',lim:'≥ 90 %',ok:etaCoil>=90},
     {n:'30 cm 磁密（公众暴露）',v:B300.toFixed(0)+' µT',lim:'≤ 27 µT（ICNIRP）',ok:B300<=27}
@@ -592,7 +714,8 @@ function compute(inp){
 
   return {P,shape,gap:g,freq:inp.freq,app:inp.app,OD,ID,Dfer,Dalu,Dhous,N,tile,nTile,gapTile:inp.gapTile,
     tf:inp.tf,ta:inp.ta,ferMat:inp.ferMat,aluMat:inp.aluMat,
-    dx,dy,delta,fmis:fmisVal,misDecay,
+    dx,dy,delta,fmis:fmisVal,misDecay,gEff,tilt,
+    topo,topoC,det,RL,topoName:TOPO_NAME[topo],Req,
     ferName:FM.n,aluName:AM.n,ferTip:FM.tip,mu0:FM.mu,bs:FM.bs,aluSig:AM.sig,
     mu,F,L:L*1e6,M:M*1e6,k,Im,Vcoil,Cap,Acu,nStr,nStrNeed,Rcu:Rcu*1000,Rdc:Rdc*1000,kRac,dStr,skin,nLayer,
     Pcu,Peddy,Pcore,Pplate,Bmax,satMargin,B200,B300,Aalu,Afin,Aeff,finFactor,finH,nFin,amb,aluT,finT,coilT,dT,dTfin,Aneed,
@@ -835,15 +958,15 @@ function draw3D(){
 
 /* ---------- UI ---------- */
 const $=id=>document.getElementById(id);
-const state={shape:'circ',last:null,fem:null,view:'ana'};
+const state={shape:'circ',topo:'ss',last:null,fem:null,view:'ana'};
 const APP_GAP={agv:30,robot:20,ev:80,lift:15,hand:10};
 const APP_NAME={agv:'AGV / 移动机器人',robot:'工业机器人 / 机械臂',ev:'电动汽车',lift:'提升机 / 传送线',hand:'手持 / 小家电'};
 
 function readInputs(){
   return {P:+$('pw').value,gap:+$('gap').value,freq:+$('freq').value,
-    dx:+$('dx').value,dy:+$('dy').value,app:$('app').value,
+    dx:+$('dx').value,dy:+$('dy').value,tilt:+$('tilt').value,app:$('app').value,
     tf:+$('tf').value,ta:+$('ta').value,finH:+$('fh').value,amb:+$('amb').value,tile:+$('ts').value,
-    gapTile:+$('gt').value,autoN:$('autoN').checked,N:+$('nt').value,shape:state.shape,
+    gapTile:+$('gt').value,autoN:$('autoN').checked,N:+$('nt').value,shape:state.shape,topo:state.topo,
     ferMat:$('ferMat').value,aluMat:$('aluMat').value};
 }
 const row=(a,b)=>`<tr><td>${a}</td><td>${b}</td></tr>`;
@@ -880,9 +1003,27 @@ function update(){
     row('20 cm 磁密',d.B200.toFixed(0)+' µT')+
     row('30 cm 磁密',d.B300.toFixed(0)+' µT（公众限 27）')+
     row('Z 轴间隙',d.gap+' mm')+
+    row('接收端倾斜',d.tilt.toFixed(1)+'°')+
+    row('倾斜等效间隙',d.gEff.toFixed(1)+' mm')+
     row('X / Y 偏心',d.dx+' / '+d.dy+' mm')+
     row('合偏心 δ',d.delta.toFixed(1)+' mm')+
     row('工作频率',(d.freq/1000).toFixed(0)+' kHz');
+
+  {
+    const T=d.det[d.topo].pts, LD=d.det[d.topo].load;
+    const t0=T[1].eta, tw=Math.min(...T.map(x=>x.eta));
+    $('topoTag').textContent=d.topoName.split(' ')[0];
+    $('topoTbl').innerHTML=
+      row('拓扑',d.topoName)+
+      row('谐振电感 Lf',d.topoC.Lf?(d.topoC.Lf*1e6).toFixed(1)+' µH':'—（SS 无）')+
+      row('并联电容 Cf',d.topoC.Cf?(d.topoC.Cf*1e9).toFixed(0)+' nF':'—（SS 无）')+
+      row('串联电容 C1 / C2',(d.topoC.C1*1e9).toFixed(0)+' / '+(d.topoC.C2*1e9).toFixed(0)+' nF')+
+      row('失谐 −5%：效率 / 功率',T[0].eta.toFixed(1)+' % / '+(100*T[0].P/d.P).toFixed(0)+' %')+
+      row('失谐 +5%：效率 / 功率',T[2].eta.toFixed(1)+' % / '+(100*T[2].P/d.P).toFixed(0)+' %')+
+      row('0.5× / 1.5× 负载效率',LD[0.5].eta.toFixed(1)+' / '+LD[1.5].eta.toFixed(1)+' %')+
+      row('1.5× 负载输出功率',(100*LD[1.5].P/d.P).toFixed(0)+' % 标称')+
+      row('标称 / 最差效率',t0.toFixed(1)+' / '+tw.toFixed(1)+' %');
+  }
 
   $('loss').innerHTML=
     row('铜损（单端）',d.Pcu.toFixed(1)+' W')+
@@ -921,7 +1062,7 @@ function update(){
     `<tr><td>${c.n}<br><span style="font-size:10px;color:#6b7787">限值 ${c.lim}</span></td>`+
     `<td>${c.v}<br><span class="tag ${c.ok?'ok':'bad'}">${c.ok?'通过':'超限'}</span></td></tr>`).join('');
   $('compNote').textContent=(bad.length===0
-    ? '8 项校核全部通过，可进入样机试制。'
+    ? d.checks.length+' 项校核全部通过，可进入样机试制。'
     : '未通过：'+bad.map(c=>c.n).join('、')+'。')+
     '限值取自 Maxwell 2D 标定与工程经验（间隙/偏移参考 IEC 61980-1、SAE J2954 建议值），属设计自检，不等同第三方认证。';
 
@@ -931,6 +1072,7 @@ function update(){
   if(d.dTfin>60) warn.push(`温升偏高：加散热筋后仍 ${d.dTfin.toFixed(0)} ℃，建议铝板贴底盘导热或加风冷。`);
   if(d.Im>22) warn.push(`线圈电流 ${d.Im.toFixed(1)} A 偏大，建议增加匝数或加大线圈。`);
   if(d.misDecay>0.25) warn.push(`水平偏心 ${d.delta.toFixed(0)} mm（${(d.delta/d.OD*100).toFixed(0)}% OD）使耦合衰减 ${(d.misDecay*100).toFixed(0)}%，效率与传输功率都会掉。工程上一般要求偏移 ≤15–20% OD，必要时加对中导向或改用 DD/双 D 抗偏移结构。`);
+  if(d.tilt>2) warn.push(`接收端倾斜 ${d.tilt.toFixed(1)}° 超出姿态要求：等效间隙由 ${d.gap} mm 增至 ${d.gEff.toFixed(1)} mm，k 与效率同步下降；需增加限位/球铰自适应或降低安装公差。`);
   $('warnbox').style.display=warn.length?'block':'none';
   $('warnbox').innerHTML=warn.join('<br>');
 
@@ -947,10 +1089,12 @@ function update(){
     `<b>充电效率</b>按 P/(P+2×单端损耗) 估算（单端含铜损、铝板涡流与磁板铁损 Steinmetz 估算）：线圈-线圈 ${d.etaCoil.toFixed(1)}%，再乘逆变/整流约 95% 得系统效率 ${d.etaSys.toFixed(1)}%。样机受线束与开关损耗影响通常再低 0.5–1.5 个百分点。`+
     `<b>Z 轴间隙</b>${d.gap} mm 为两线圈面之间的距离（含两侧外壳厚度），不是铁氧体之间的距离。间隙每翻倍 k 约掉 1/3，能小则小。`+
     `<b>X / Y 偏心</b>水平偏心按两圆环互感的精确公式逐匝求和：δ ${d.delta.toFixed(1)} mm 时 k 衰减 ${(d.misDecay*100).toFixed(0)}%。经验边界：偏移 ≤15% OD 影响 <10%；>25% OD 急剧恶化。AGV 停位重复精度建议按 ±20 mm 校核，必要时加 V 型导向或锥形对中。`+
+    `<b>接收端倾斜</b>倾斜 ${d.tilt.toFixed(1)}° 时按圆盘间隙 RMS 折算等效间隙 ${d.gEff.toFixed(1)} mm（名义 ${d.gap} mm），k 与铝板涡流均按等效间隙计算。倾斜 ±1° 对 D${d.OD} 线圈约等于边缘多出 ${(d.OD/2*Math.tan(d.tilt*Math.PI/180)).toFixed(1)} mm 气隙，建议安装限位 ≤2°。`+
+    `<b>补偿拓扑</b>当前 ${d.topoName}：Lf ${d.topoC.Lf?(d.topoC.Lf*1e6).toFixed(1)+' µH':'—'}、Cf ${d.topoC.Cf?(d.topoC.Cf*1e9).toFixed(0)+' nF':'—'}、C1/C2 ${(d.topoC.C1*1e9).toFixed(0)}/${(d.topoC.C2*1e9).toFixed(0)} nF。L、M 同时 ±5% 漂移时最差效率 ${Math.min(...d.det[d.topo].pts.map(x=>x.eta)).toFixed(1)}%（标称 ${d.det[d.topo].pts[1].eta.toFixed(1)}%），输出功率变化 −5%/+5% 分别为 ${(100*d.det[d.topo].pts[0].P/d.P).toFixed(0)}%/${(100*d.det[d.topo].pts[2].P/d.P).toFixed(0)}%。本算例三种拓扑效率差异 <1 个百分点，选型主要由输出特性（LCC-LCC 近似恒流、S-LCC 近似恒压）与器件成本决定。`+
     `<b>外壳</b>D ${d.Dhous} mm；线圈面必须非金属（G10/FR4 或 PA66-GF30），侧壁不得形成闭合金属环（否则等于短路环）。`;
 
   $('chipShape').textContent={circ:'圆形',sq:'方形',dd:'DD'}[d.shape];
-  $('chipGap').textContent=`Z 间隙 ${d.gap} mm`+(d.delta>0.5?` · 偏心 ${d.delta.toFixed(0)} mm`:'');
+  $('chipGap').textContent=`Z 间隙 ${d.gap} mm`+(d.delta>0.5?` · 偏心 ${d.delta.toFixed(0)} mm`:'')+(d.tilt>0.05?` · 倾斜 ${d.tilt.toFixed(1)}°`:'');
   $('dimline').textContent=`  Ø${d.OD} · 单板 ${d.stack.toFixed(1)} mm · 总高 ${(2*d.stack+d.gap).toFixed(1)} mm · ${d.N} 匝 · ${(d.freq/1000).toFixed(0)} kHz`;
 
   drawXsec(d);
@@ -965,7 +1109,7 @@ function update(){
 
 /* 输入事件 */
 [['pw','pwv',v=>v+' W'],['gap','gapv',v=>v+' mm'],['dx','dxv',v=>v+' mm'],
- ['dy','dyv',v=>v+' mm'],['tf','tfv',v=>v+' mm'],
+ ['dy','dyv',v=>v+' mm'],['tilt','tiltv',v=>(+v).toFixed(1)+'°'],['tf','tfv',v=>v+' mm'],
  ['ta','tav',v=>v+' mm'],['fh','fhv',v=>v+' mm'],['amb','ambv',v=>v+' °C'],['ts','tsv',v=>v+' mm'],['nt','nv',v=>v]]
 .forEach(([id,lab,f])=>{
   $(id).addEventListener('input',e=>{ $(lab).textContent=f(e.target.value); update(); });
@@ -985,6 +1129,12 @@ document.querySelectorAll('#shape button').forEach(b=>{
   b.addEventListener('click',()=>{
     document.querySelectorAll('#shape button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); state.shape=b.dataset.v; update();
+  });
+});
+document.querySelectorAll('#topoSel button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#topoSel button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); state.topo=b.dataset.v; update();
   });
 });
 
@@ -1148,6 +1298,8 @@ function refreshProjects(){
 function applyInput(inp){
   $('pw').value=inp.P; $('gap').value=inp.gap;
   $('dx').value=inp.dx||0; $('dy').value=inp.dy||0;
+  $('tilt').value=inp.tilt==null?0:inp.tilt;
+  $('tiltv').textContent=(+$('tilt').value).toFixed(1)+'°';
   $('freq').value=inp.freq; $('tf').value=inp.tf; $('ta').value=inp.ta;
   $('fh').value=inp.finH==null?15:inp.finH;
   $('amb').value=inp.amb==null?25:inp.amb;
@@ -1157,6 +1309,8 @@ function applyInput(inp){
   $('ferMat').value=inp.ferMat; $('aluMat').value=inp.aluMat;
   state.shape=inp.shape||'circ';
   [...$('shape').children].forEach(b=>b.classList.toggle('on',b.dataset.v===state.shape));
+  state.topo=inp.topo||'ss';
+  [...$('topoSel').children].forEach(b=>b.classList.toggle('on',b.dataset.v===state.topo));
   update();
 }
 $('saveBtn').addEventListener('click',()=>{
@@ -1291,6 +1445,7 @@ ul.limits{margin:4px 0 0 15px;padding:0;font-size:9.8px;color:#5b6877;line-heigh
 ${p4('传输功率',d.P+' W','应用场景',esc(APP_NAME[d.app]||'—'))}
 ${p4('线圈结构',{circ:'圆形',sq:'方形',dd:'DD'}[d.shape],'工作频率',(d.freq/1000).toFixed(0)+' kHz')}
 ${p4('Z 轴间隙',d.gap+' mm','X / Y 偏心',d.dx+' / '+d.dy+' mm')}
+${p4('接收端倾斜',d.tilt.toFixed(1)+'°','倾斜等效间隙',d.gEff.toFixed(1)+' mm')}
 ${p4('合偏心 δ',d.delta.toFixed(1)+' mm','偏移 k 衰减',(d.misDecay*100).toFixed(0)+' %')}
 ${p4('外径 / 内径',d.OD+' / '+d.ID+' mm','匝数',d.N+' 匝')}
 ${p4('利兹线（市售标准）',d.nStr+' × 0.1 mm','等效截面',d.Acu.toFixed(2)+' mm²（理论需 '+d.nStrNeed+' 股）')}
@@ -1299,7 +1454,11 @@ ${p4('交流电阻系数 Rac/Rdc',d.kRac.toFixed(2)+'（'+d.dStr+' mm 单丝 / '
 ${p4('线圈电流（RMS）',d.Im.toFixed(1)+' A','端电压',d.Vcoil.toFixed(0)+' V')}
 ${p4('自感 L'+vTag,vL.toFixed(2)+' µH','互感 M'+vTag,vM.toFixed(2)+' µH')}
 ${p4('耦合系数 k'+vTag,vK.toFixed(4),'串联补偿电容',d.Cap.toFixed(1)+' nF')}
+${p4('补偿拓扑',esc(d.topoName),'标称负载 R_L',d.RL.toFixed(1)+' Ω')}
+${p4('谐振电感 Lf',d.topoC.Lf?(d.topoC.Lf*1e6).toFixed(1)+' µH':'—','并联电容 Cf',d.topoC.Cf?(d.topoC.Cf*1e9).toFixed(0)+' nF':'—')}
+${p4('串联电容 C1 / C2',(d.topoC.C1*1e9).toFixed(0)+' / '+(d.topoC.C2*1e9).toFixed(0)+' nF','失谐 ±5% 最差效率',Math.min(...d.det[d.topo].pts.map(x=>x.eta)).toFixed(1)+' %（标称 '+d.det[d.topo].pts[1].eta.toFixed(1)+' %）')}
 </table>
+<p class="note">失谐灵敏度：L、M 同时 ±5% 漂移、补偿元件固定为标称值，用回路电流法基波模型计算。最差效率 SS ${Math.min(...d.det.ss.pts.map(x=>x.eta)).toFixed(1)}% / LCC-LCC ${Math.min(...d.det.lcc.pts.map(x=>x.eta)).toFixed(1)}% / S-LCC ${Math.min(...d.det.slcc.pts.map(x=>x.eta)).toFixed(1)}%；对应输出功率偏差（−5%/+5%）SS ${(100*d.det.ss.pts[0].P/d.P).toFixed(0)}%/${(100*d.det.ss.pts[2].P/d.P).toFixed(0)}%、LCC-LCC ${(100*d.det.lcc.pts[0].P/d.P).toFixed(0)}%/${(100*d.det.lcc.pts[2].P/d.P).toFixed(0)}%、S-LCC ${(100*d.det.slcc.pts[0].P/d.P).toFixed(0)}%/${(100*d.det.slcc.pts[2].P/d.P).toFixed(0)}%。</p>
 
 <h2><span>03</span>磁板、铝板与热设计</h2>
 <table class="pairs">
@@ -1345,7 +1504,8 @@ ${p4('磁板质量',d.ferMass.toFixed(2)+' kg','铝板质量',d.aluMass.toFixed(
 <div class="notes">${$('notesBody').innerHTML}</div>
 <ul class="limits">
   <li>磁场基准为 Maxwell 2D 轴对称涡流场标定（D250 / 12 匝 / 30 mm → L 66.3 µH、M 44.8 µH、k 0.676），其余功率与尺寸按解析模型外推。</li>
-  <li>偏心衰减按两圆环互感精确公式逐匝求和；未考虑接收端倾斜与三维端部效应。</li>
+  <li>偏心衰减按两圆环互感精确公式逐匝求和；接收端倾斜按圆盘间隙 RMS 折算为等效间隙，未考虑三维端部效应与倾斜引入的横向力。</li>
+  <li>补偿拓扑按基波阻抗模型计算，谐振元件取标称值；失谐评估只计入 L/M ±5% 漂移，未含电容容差与开关器件压降。</li>
   <li>温升为自然对流稳态估算（h = 10 W/m²K、筋效率 0.85），未含强制风冷、辐射与瞬态。</li>
   <li>交流电阻按 Dowell 型解析近似计算：单丝 0.1 mm 趋肤 + 股间邻近效应 + 层数修正，未含接头与端部损耗。</li>
   <li>30 cm 磁密按磁偶极子估算（双板对消等效磁矩），用于 ICNIRP 公众暴露 27 µT 的初判，定型前需按 IEC 62233 实测。</li>
@@ -1421,8 +1581,74 @@ function drawCmp(pts,cfg){
     });
   });
 }
+function drawHeat(gaps,tiles,vals){
+  const cv=$('cmpChart'), dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||700, h=300;
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,w,h);
+  const L=52,R=78,T=22,B=34;
+  const cw=(w-L-R)/gaps.length, chh=(h-T-B)/tiles.length;
+  let mn=Infinity,mx=-Infinity;
+  vals.forEach(r=>r.forEach(o=>{ if(o.eta<mn)mn=o.eta; if(o.eta>mx)mx=o.eta; }));
+  const span=Math.max(mx-mn,0.1);
+  vals.forEach((row,j)=>row.forEach((o,i)=>{
+    const t=(o.eta-mn)/span;
+    const x=L+i*cw, y=T+(tiles.length-1-j)*chh;
+    c.fillStyle=`hsl(${8+142*t},72%,${26+26*t}%)`;
+    c.fillRect(x,y,cw-1,chh-1);
+    c.fillStyle=t>0.45?'#06210f':'#e6f7ea';
+    c.font='10px Consolas,monospace'; c.textAlign='center';
+    c.fillText(o.eta.toFixed(1),x+cw/2,y+chh/2+3);
+  }));
+  let bi=0,bj=0;
+  vals.forEach((row,j)=>row.forEach((o,i)=>{ if(o.eta>vals[bj][bi].eta){bi=i;bj=j;} }));
+  c.strokeStyle='#fff'; c.lineWidth=2;
+  c.strokeRect(L+bi*cw+1,T+(tiles.length-1-bj)*chh+1,cw-3,chh-3);
+  c.fillStyle='#8b98a9'; c.font='10px Consolas,monospace'; c.textAlign='center';
+  gaps.forEach((g,i)=>c.fillText(g,L+i*cw+cw/2,h-B+14));
+  c.textAlign='right';
+  tiles.forEach((t,j)=>c.fillText(t,L-6,T+(tiles.length-1-j)*chh+chh/2+3));
+  c.textAlign='left'; c.font='10px sans-serif';
+  c.fillText('Z 间隙 mm →',L,h-8);
+  c.save(); c.translate(14,T+(h-T-B)/2); c.rotate(-Math.PI/2);
+  c.textAlign='center'; c.fillText('拼块边长 mm',0,0); c.restore();
+  const lx=w-R+26, ly=T, lh=h-T-B;
+  for(let i=0;i<lh;i++){
+    const t=1-i/lh;
+    c.fillStyle=`hsl(${8+142*t},72%,${26+26*t}%)`;
+    c.fillRect(lx,ly+i,12,1);
+  }
+  c.strokeStyle='#28313b'; c.lineWidth=1; c.strokeRect(lx,ly,12,lh);
+  c.fillStyle='#8b98a9'; c.font='9px Consolas,monospace'; c.textAlign='left';
+  c.fillText(mx.toFixed(1),lx+16,ly+8);
+  c.fillText(mn.toFixed(1),lx+16,ly+lh);
+  c.fillText('效率 %',lx-4,ly-6);
+}
+function runHeat(){
+  const base=readInputs(), gaps=[], tiles=[];
+  for(let g=10;g<=80;g+=10) gaps.push(g);
+  for(let t=50;t<=300;t+=50) tiles.push(t);
+  const vals=tiles.map(t=>gaps.map(g=>{
+    const d=compute({...base,gap:g,tile:t});
+    return {eta:d.etaCoil,k:d.k,T:d.aluT,OD:d.OD};
+  }));
+  drawHeat(gaps,tiles,vals);
+  let bi=0,bj=0;
+  vals.forEach((row,j)=>row.forEach((o,i)=>{ if(o.eta>vals[bj][bi].eta){bi=i;bj=j;} }));
+  const cur=compute(base);
+  $('cmpTable').innerHTML=
+    `<tr><td>方案</td><td>间隙</td><td>拼块</td><td>效率 %</td><td>k</td></tr>`+
+    `<tr><td>最优（白框）</td><td>${gaps[bi]} mm</td><td>${tiles[bj]} mm</td><td>${vals[bj][bi].eta.toFixed(1)}</td><td>${vals[bj][bi].k.toFixed(3)}</td></tr>`+
+    `<tr><td>当前参数</td><td>${base.gap} mm</td><td>${base.tile} mm</td><td>${cur.etaCoil.toFixed(1)}</td><td>${cur.k.toFixed(3)}</td></tr>`;
+  $('cmpLegend').style.display='none';
+  $('cmpNote').textContent='热图横轴为 Z 轴间隙（10–80 mm）、纵轴为磁板拼块边长（50–300 mm），色标为线圈-线圈效率；白框为扫描范围内效率最高的一格。其余参数保持当前工程设置。';
+}
 function runCmp(){
-  const cfg=CMPV[$('cmpVar').value], base=readInputs(), pts=[];
+  const key=$('cmpVar').value;
+  if(key==='heat'){ runHeat(); return; }
+  const cfg=CMPV[key], base=readInputs(), pts=[];
+  $('cmpLegend').style.display='flex';
+  $('cmpNote').textContent='扫描以当前工程参数为基准逐点重算解析模型，只改变所选参数，其余条件保持不变。';
   for(let v=cfg.a; v<=cfg.b+1e-9; v+=cfg.s){
     const d=compute(cfg.set(base,v));
     pts.push({v,k:d.k,eta:d.etaCoil,T:d.aluT});
