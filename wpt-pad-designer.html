@@ -331,7 +331,11 @@ details.notes summary::-webkit-details-marker{display:none}
       <button class="btn" id="solveBtn" style="width:100%;margin-bottom:8px">▶ 连接 ANSYS 求解</button>
       <div class="stat" id="astat">未连接 · 需先运行 wpt_bridge.py</div>
       <table class="tbl" id="fem"></table>
-      <div class="note" style="margin-top:8px">求解结果会回填到本软件：L / M / k 与铝板涡流损耗写入上表，并与本页解析模型逐项对比偏差，同时写入 PDF 设计报告。<br>FEM 已按所选拼块/拼缝径向切分磁板建模；轴对称只能表达径向缝，环向缝无法体现，故 FEM 仍略高于解析值（约 20–25%）。</div>
+      <div class="seg" id="femView" style="margin-top:8px;display:none">
+        <button data-v="ana" class="on">主值：解析模型</button>
+        <button data-v="fem">主值：FEM</button>
+      </div>
+      <div class="note" style="margin-top:8px">求解结果会回填到本软件：L / M / k 与铝板涡流损耗写入上表，并与本页解析模型逐项对比偏差，同时写入 PDF 设计报告。<br>FEM 已按所选拼块/拼缝径向切分磁板建模；轴对称只能表达径向缝，环向缝无法体现，故 FEM 仍略高于解析值（约 15–25%）。<br>「主值」切换只影响核心结果卡与报告的取值口径，效率与温升仍按解析模型计算。</div>
       <button class="btn" id="export" style="width:100%;margin-top:10px">导出参数数据（JSON）</button>
       <div class="note" style="margin-top:6px">JSON 是给软件或同事读取的完整数据快照（全部输入 + 计算结果 + FEM 值），可用于归档、版本对比或二次开发；对外汇报请用左栏「导出 PDF」。</div>
     </div>
@@ -513,12 +517,26 @@ function compute(inp){
   Acu=nStr*Math.PI*0.0025;
   const rAvg=(OD+ID)/4*1e-3;
   const lenWire=N*2*Math.PI*rAvg;
-  const Rcu=RHO_CU*lenWire/(Acu*1e-6)*1.35;
+  const Rdc=RHO_CU*lenWire/(Acu*1e-6);
+  /* 交流电阻：单丝趋肤 + 股间邻近效应（Dowell 型解析近似，单丝 0.1 mm，铜 20 ℃） */
+  const dStr=0.1;                                   /* 单丝直径 mm */
+  const skin=66.1/Math.sqrt(inp.freq);              /* 趋肤深度 mm */
+  const xr=dStr/skin, x4=xr*xr*xr*xr;
+  const kSkin=1+x4/48;                              /* 单丝自身趋肤 */
+  const kProx=1+x4*nStr/96;                         /* 股间邻近效应 */
+  const nLayer=Math.max(1,Math.round(N/6));         /* 径向绕线层数近似 */
+  const kRac=kSkin*kProx*(1+0.05*(nLayer-1));
+  const Rcu=Rdc*kRac;
   const Pcu=Im*Im*Rcu;
 
   /* 7) 磁密与饱和裕度 */
   const Bmax=MU0*N*Im/(g*1e-3)*1e3;             /* mT */
   const satMargin=FM.bs*1e3/Math.max(Bmax,0.01);
+
+  /* 7b) 电磁暴露（EMF）：磁偶极子估算 20/30 cm 处磁密，ICNIRP 85 kHz 公众 27 µT */
+  const mDip=N*Im*Math.PI*Math.pow(OD/2*1e-3,2)/2;   /* 双板对消后等效磁矩 A·m² */
+  const B200=1e6*1e-7*mDip/Math.pow(0.20,3);         /* µT */
+  const B300=1e6*1e-7*mDip/Math.pow(0.30,3);
 
   /* 8) 铝板涡流损耗（3kW/5mm 磁板标定 78.4W；材料与拼缝修正） */
   const fFer=Math.pow(inp.tf/5,-0.357);
@@ -568,15 +586,16 @@ function compute(inp){
     {n:'水平偏心 δ',v:delta.toFixed(0)+' mm',lim:'≤ '+(0.15*OD).toFixed(0)+' mm（15% OD）',ok:delta<=0.15*OD},
     {n:'间隙 / 外径',v:(g/OD*100).toFixed(1)+' %',lim:'≤ 25 %',ok:g/OD<=0.25},
     {n:'耦合系数 k',v:k.toFixed(3),lim:'≥ 0.35',ok:k>=0.35},
-    {n:'充电效率（线圈-线圈）',v:etaCoil.toFixed(1)+' %',lim:'≥ 90 %',ok:etaCoil>=90}
+    {n:'充电效率（线圈-线圈）',v:etaCoil.toFixed(1)+' %',lim:'≥ 90 %',ok:etaCoil>=90},
+    {n:'30 cm 磁密（公众暴露）',v:B300.toFixed(0)+' µT',lim:'≤ 27 µT（ICNIRP）',ok:B300<=27}
   ];
 
   return {P,shape,gap:g,freq:inp.freq,app:inp.app,OD,ID,Dfer,Dalu,Dhous,N,tile,nTile,gapTile:inp.gapTile,
     tf:inp.tf,ta:inp.ta,ferMat:inp.ferMat,aluMat:inp.aluMat,
     dx,dy,delta,fmis:fmisVal,misDecay,
     ferName:FM.n,aluName:AM.n,ferTip:FM.tip,mu0:FM.mu,bs:FM.bs,aluSig:AM.sig,
-    mu,F,L:L*1e6,M:M*1e6,k,Im,Vcoil,Cap,Acu,nStr,nStrNeed,Rcu:Rcu*1000,Pcu,Peddy,Pcore,Pplate,
-    Bmax,satMargin,Aalu,Afin,Aeff,finFactor,finH,nFin,amb,aluT,finT,coilT,dT,dTfin,Aneed,
+    mu,F,L:L*1e6,M:M*1e6,k,Im,Vcoil,Cap,Acu,nStr,nStrNeed,Rcu:Rcu*1000,Rdc:Rdc*1000,kRac,dStr,skin,nLayer,
+    Pcu,Peddy,Pcore,Pplate,Bmax,satMargin,B200,B300,Aalu,Afin,Aeff,finFactor,finH,nFin,amb,aluT,finT,coilT,dT,dTfin,Aneed,
     Ploss,etaCoil,etaSys,checks,
     stack,ferMass,aluMass,lenWire,lenTurn,coilH,ins,tim,base,shell};
 }
@@ -816,7 +835,7 @@ function draw3D(){
 
 /* ---------- UI ---------- */
 const $=id=>document.getElementById(id);
-const state={shape:'circ',last:null,fem:null};
+const state={shape:'circ',last:null,fem:null,view:'ana'};
 const APP_GAP={agv:30,robot:20,ev:80,lift:15,hand:10};
 const APP_NAME={agv:'AGV / 移动机器人',robot:'工业机器人 / 机械臂',ev:'电动汽车',lift:'提升机 / 传送线',hand:'手持 / 小家电'};
 
@@ -832,13 +851,16 @@ const row=(a,b)=>`<tr><td>${a}</td><td>${b}</td></tr>`;
 function update(){
   const inp=readInputs(), d=compute(inp);
 
-  $('rk').textContent=d.k.toFixed(3);
-  const q=d.k>0.6?['优','ok']:(d.k>0.35?['可用','warn']:['偏低','bad']);
+  const useFem=!!(state.fem&&state.view==='fem');
+  const vK=useFem?state.fem.k:d.k, vL=useFem?state.fem.L:d.L, vM=useFem?state.fem.M:d.M;
+  $('rk').innerHTML=vK.toFixed(3)+(useFem?'<span class="u" style="color:var(--blue)"> FEM</span>':'');
+  const q=vK>0.6?['优','ok']:(vK>0.35?['可用','warn']:['偏低','bad']);
   const dirTxt=d.delta>0.5?` · 方向 ${(Math.atan2(d.dy,d.dx)*180/Math.PI).toFixed(0)}°`:'';
   $('rk2').innerHTML=`<span class="tag ${q[1]}">${q[0]}</span> 间隙/外径 = ${(d.gap/d.OD*100).toFixed(1)}%`
-    +(d.delta>0.5?`<br>偏心 δ ${d.delta.toFixed(0)} mm${dirTxt} · k 衰减 ${(d.misDecay*100).toFixed(0)}%`:'');
-  $('rL').innerHTML=`${d.L.toFixed(1)}<span class="u">µH</span>`;
-  $('rM').innerHTML=`${d.M.toFixed(1)}<span class="u">µH</span>`;
+    +(d.delta>0.5?`<br>偏心 δ ${d.delta.toFixed(0)} mm${dirTxt} · k 衰减 ${(d.misDecay*100).toFixed(0)}%`:'')
+    +(useFem?'<br>主值口径：ANSYS Maxwell 2D':'');
+  $('rL').innerHTML=`${vL.toFixed(1)}<span class="u">µH</span>`;
+  $('rM').innerHTML=`${vM.toFixed(1)}<span class="u">µH</span>`;
 
   $('params').innerHTML=
     row('磁板材料',d.ferName)+
@@ -850,9 +872,13 @@ function update(){
     row('线径',d.Acu.toFixed(1)+' mm²')+
     row('利兹线（市售标准）',d.nStr+' × 0.1 mm')+
     row('理论股数 → 取整',d.nStrNeed+' → '+d.nStr)+
-    row('直流电阻',d.Rcu.toFixed(1)+' mΩ')+
+    row('直流电阻 Rdc',d.Rdc.toFixed(1)+' mΩ')+
+    row('交流电阻系数 Rac/Rdc',d.kRac.toFixed(2)+'（'+d.dStr+' mm 丝 / '+d.nLayer+' 层）')+
+    row('交流电阻 Rac',d.Rcu.toFixed(1)+' mΩ')+
     row('气隙磁密',d.Bmax.toFixed(1)+' mT')+
     row('饱和裕度',d.satMargin.toFixed(0)+' ×')+
+    row('20 cm 磁密',d.B200.toFixed(0)+' µT')+
+    row('30 cm 磁密',d.B300.toFixed(0)+' µT（公众限 27）')+
     row('Z 轴间隙',d.gap+' mm')+
     row('X / Y 偏心',d.dx+' / '+d.dy+' mm')+
     row('合偏心 δ',d.delta.toFixed(1)+' mm')+
@@ -931,8 +957,10 @@ function update(){
   build3D(d);
   draw3D();
   state.last=d;
-  state.fem=null;
+  state.fem=null; state.view='ana';
   $('fem').innerHTML='';
+  $('femView').style.display='none';
+  $('femView').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v==='ana'));
 }
 
 /* 输入事件 */
@@ -1036,6 +1064,24 @@ async function detectAedt(){
 detectAedt();
 $('solveBtn').addEventListener('click',startSolve);
 $('solveBtn2').addEventListener('click',startSolve);
+$('femView').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b||!state.fem) return;
+  state.view=b.dataset.v;
+  $('femView').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  updateViewCards();
+});
+function updateViewCards(){
+  const d=state.last; if(!d) return;
+  const useFem=!!(state.fem&&state.view==='fem');
+  const vK=useFem?state.fem.k:d.k, vL=useFem?state.fem.L:d.L, vM=useFem?state.fem.M:d.M;
+  $('rk').innerHTML=vK.toFixed(3)+(useFem?'<span class="u" style="color:var(--blue)"> FEM</span>':'');
+  $('rL').innerHTML=`${vL.toFixed(1)}<span class="u">µH</span>`;
+  $('rM').innerHTML=`${vM.toFixed(1)}<span class="u">µH</span>`;
+  const q=vK>0.6?['优','ok']:(vK>0.35?['可用','warn']:['偏低','bad']);
+  $('rk2').innerHTML=`<span class="tag ${q[1]}">${q[0]}</span> 间隙/外径 = ${(d.gap/d.OD*100).toFixed(1)}%`
+    +(d.delta>0.5?`<br>偏心 δ ${d.delta.toFixed(0)} mm · k 衰减 ${(d.misDecay*100).toFixed(0)}%`:'')
+    +(useFem?'<br>主值口径：ANSYS Maxwell 2D':'');
+}
 async function startSolve(){
   const d=state.last, st=$('astat');
   if(!d) return;
@@ -1063,6 +1109,8 @@ async function startSolve(){
     st.className=j.note?'stat busy':'stat on';
     st.textContent='✔ 求解完成 · 开始 '+j.times.start+' → 完成 '+j.times.end+' · 用时 '+j.times.sec+' s · '+j.case+(j.note?' · '+j.note:'');
     state.fem=j;
+    $('femView').style.display='flex';
+    $('femView').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.v===state.view));
     const e=(a,b)=>'('+(100*(a-b)/b>=0?'+':'')+(100*(a-b)/b).toFixed(1)+'%)';
     $('fem').innerHTML=
       row('FEM 自感 L',j.L.toFixed(2)+' µH')+
@@ -1149,6 +1197,9 @@ function reportHTML(d,fem){
   const bad=d.checks.filter(c=>!c.ok);
   const verdict=bad.length===0?['符合设计准则','ok']:(bad.length<=2?['基本符合 · 待优化 '+bad.length+' 项','warn']:['不符合设计准则','bad']);
   const dev=(f,a)=>(f==null||!a)?'—':((100*(f-a)/a>=0?'+':'')+(100*(f-a)/a).toFixed(1)+'%');
+  const useFem=!!(fem&&state.view==='fem');
+  const vL=useFem?fem.L:d.L, vM=useFem?fem.M:d.M, vK=useFem?fem.k:d.k;
+  const vTag=useFem?'（FEM）':'';
   const kpi=(v,u,l)=>`<div class="kpi"><div class="kv">${v}<span>${u}</span></div><div class="kl">${l}</div></div>`;
   const p4=(l1,v1,l2,v2)=>`<tr><td class="lb">${l1}</td><td>${v1}</td><td class="lb">${l2}</td><td>${v2}</td></tr>`;
   const compRows=d.checks.map(c=>`<tr><td>${esc(c.n)}</td><td class="lim">${esc(c.lim)}</td><td class="mono">${esc(c.v)}</td><td><span class="chip ${c.ok?'pass':'fail'}">${c.ok?'通过':'超限'}</span></td></tr>`).join('');
@@ -1223,11 +1274,11 @@ ul.limits{margin:4px 0 0 15px;padding:0;font-size:9.8px;color:#5b6877;line-heigh
 <div class="kpis">
   ${kpi(d.P,'W','传输功率')}
   ${kpi(d.etaCoil.toFixed(1),'%','充电效率（线圈-线圈）')}
-  ${kpi(d.k.toFixed(3),'','耦合系数 k')}
+  ${kpi(vK.toFixed(3),'','耦合系数 k'+vTag)}
   ${kpi(d.dTfin.toFixed(0),'℃','加筋后温升')}
   ${kpi(d.stack.toFixed(1),'mm','单板总厚')}
 </div>
-<div class="verdict ${verdict[1]}"><b>合规结论：${verdict[0]}。</b>共 8 项校核，通过 ${d.checks.length-bad.length} 项${bad.length?'，未通过：'+bad.map(c=>esc(c.n)).join('、'):''}。判定为工程自检，不等同第三方认证。</div>
+<div class="verdict ${verdict[1]}"><b>合规结论：${verdict[0]}。</b>共 ${d.checks.length} 项校核，通过 ${d.checks.length-bad.length} 项${bad.length?'，未通过：'+bad.map(c=>esc(c.n)).join('、'):''}。判定为工程自检，不等同第三方认证。</div>
 <ul class="sum">
   <li>在 ${d.P} W、${d.gap} mm 间隙、${(d.freq/1000).toFixed(0)} kHz 下，线圈-线圈效率 <b>${d.etaCoil.toFixed(1)}%</b>，系统效率 ${d.etaSys.toFixed(1)}%，两端损耗合计 ${d.Ploss.toFixed(0)} W。</li>
   <li>磁板 ${esc(d.ferName)} 拼块后等效 μr ${d.mu.toFixed(0)}；气隙磁密 ${d.Bmax.toFixed(1)} mT，饱和裕度 ${d.satMargin.toFixed(1)}×。</li>
@@ -1243,10 +1294,11 @@ ${p4('Z 轴间隙',d.gap+' mm','X / Y 偏心',d.dx+' / '+d.dy+' mm')}
 ${p4('合偏心 δ',d.delta.toFixed(1)+' mm','偏移 k 衰减',(d.misDecay*100).toFixed(0)+' %')}
 ${p4('外径 / 内径',d.OD+' / '+d.ID+' mm','匝数',d.N+' 匝')}
 ${p4('利兹线（市售标准）',d.nStr+' × 0.1 mm','等效截面',d.Acu.toFixed(2)+' mm²（理论需 '+d.nStrNeed+' 股）')}
-${p4('线长',d.lenWire.toFixed(2)+' m','直流电阻',d.Rcu.toFixed(1)+' mΩ')}
+${p4('线长',d.lenWire.toFixed(2)+' m','直流电阻 Rdc',d.Rdc.toFixed(1)+' mΩ')}
+${p4('交流电阻系数 Rac/Rdc',d.kRac.toFixed(2)+'（'+d.dStr+' mm 单丝 / '+d.nLayer+' 层）','交流电阻 Rac',d.Rcu.toFixed(1)+' mΩ')}
 ${p4('线圈电流（RMS）',d.Im.toFixed(1)+' A','端电压',d.Vcoil.toFixed(0)+' V')}
-${p4('自感 L',d.L.toFixed(2)+' µH','互感 M',d.M.toFixed(2)+' µH')}
-${p4('耦合系数 k',d.k.toFixed(4),'串联补偿电容',d.Cap.toFixed(1)+' nF')}
+${p4('自感 L'+vTag,vL.toFixed(2)+' µH','互感 M'+vTag,vM.toFixed(2)+' µH')}
+${p4('耦合系数 k'+vTag,vK.toFixed(4),'串联补偿电容',d.Cap.toFixed(1)+' nF')}
 </table>
 
 <h2><span>03</span>磁板、铝板与热设计</h2>
@@ -1259,6 +1311,7 @@ ${p4('散热筋（直筋）',d.nFin+' 条 × '+d.finH+' mm','有效散热面积'
 ${p4('环境温度',d.amb+' °C','裸板温升 / 加筋温升',d.dT.toFixed(0)+' / '+d.dTfin.toFixed(0)+' ℃')}
 ${p4('铝板表面温度',d.aluT.toFixed(0)+' °C','散热筋表面温度',d.finT.toFixed(0)+' °C')}
 ${p4('线圈估算温度',d.coilT.toFixed(0)+' °C','外壳直径',d.Dhous+' mm')}
+${p4('20 cm 磁密（估算）',d.B200.toFixed(0)+' µT','30 cm 磁密（估算）',d.B300.toFixed(0)+' µT（ICNIRP 公众限 27 µT）')}
 </table>
 
 <h2><span>04</span>损耗、效率与温升</h2>
@@ -1294,6 +1347,8 @@ ${p4('磁板质量',d.ferMass.toFixed(2)+' kg','铝板质量',d.aluMass.toFixed(
   <li>磁场基准为 Maxwell 2D 轴对称涡流场标定（D250 / 12 匝 / 30 mm → L 66.3 µH、M 44.8 µH、k 0.676），其余功率与尺寸按解析模型外推。</li>
   <li>偏心衰减按两圆环互感精确公式逐匝求和；未考虑接收端倾斜与三维端部效应。</li>
   <li>温升为自然对流稳态估算（h = 10 W/m²K、筋效率 0.85），未含强制风冷、辐射与瞬态。</li>
+  <li>交流电阻按 Dowell 型解析近似计算：单丝 0.1 mm 趋肤 + 股间邻近效应 + 层数修正，未含接头与端部损耗。</li>
+  <li>30 cm 磁密按磁偶极子估算（双板对消等效磁矩），用于 ICNIRP 公众暴露 27 µT 的初判，定型前需按 IEC 62233 实测。</li>
   <li>合规校核为设计自检，参考 IEC 61980-1 / SAE J2954 建议值，不等同第三方认证。</li>
 </ul>
 
