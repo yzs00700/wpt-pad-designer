@@ -1,0 +1,19 @@
+# 临时与本地环境
+.screenshots/
+.trae-html-share-packages/
+.trae*/
+*.log
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 本地导出的数据与报告
+*.json
+!package.json
+导出的报告*.html
+
+# 系统文件
+Thumbs.db
+desktop.ini
+.DS_Store

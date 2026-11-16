@@ -1,0 +1,1390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WPT Pad Designer · 大功率无线充电线圈设计器</title>
+<style>
+:root{
+  --bg:#0f1216; --panel:#161b21; --panel2:#1d232b; --line:#28313b;
+  --tx:#e6edf5; --tx2:#8b98a9; --brand:#19e08a; --brand2:#0fae6a;
+  --warn:#f5b93b; --danger:#ef5b52; --blue:#56a8ff; --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);overflow:hidden;
+  font:14px/1.45 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+.app{display:grid;grid-template-columns:clamp(268px,19vw,330px) minmax(0,1fr) clamp(300px,21vw,372px);
+  height:100vh;height:100dvh}
+.side{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:0 16px 28px;
+  scrollbar-gutter:stable}
+.res{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:12px 14px;
+  scrollbar-gutter:stable}
+.main{display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+.brand{padding:18px 0 13px;border-bottom:1px solid var(--line);margin-bottom:4px}
+h1{font-size:15px;margin:0 0 3px;letter-spacing:.3px;display:flex;align-items:center;gap:8px}
+h1:before{content:"";width:7px;height:7px;border-radius:2px;background:var(--brand);box-shadow:0 0 8px rgba(25,224,138,.7)}
+.sub{font-size:11px;color:var(--tx2);margin:0}
+.sec{padding:10px 0 2px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:0}
+.sech{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;letter-spacing:.2px;
+  color:var(--tx);position:sticky;top:0;z-index:3;background:var(--panel);
+  padding:4px 0 5px;margin:-4px 0 7px}
+.sech:before{content:"";width:3px;height:13px;border-radius:2px;background:var(--brand)}
+.grp{margin-bottom:8px}
+.grp>label,.lbl{display:block;font-size:11.5px;color:#94a2b4;margin-bottom:6px;letter-spacing:0}
+.row{display:flex;align-items:center;gap:8px}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--line);border-radius:3px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+  background:var(--brand);cursor:pointer;box-shadow:0 0 0 3px rgba(25,224,138,.15)}
+input[type=number],input[type=text],select{width:100%;background:var(--panel2);color:var(--tx);border:1px solid var(--line);
+  border-radius:6px;padding:7px 9px;font-size:13px;outline:none;font-variant-numeric:tabular-nums}
+input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--brand2)}
+.val{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--brand);min-width:58px;text-align:center;
+  background:rgba(25,224,138,.10);border:1px solid rgba(25,224,138,.18);border-radius:5px;padding:1px 6px}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px;gap:3px}
+.seg button{flex:1;background:none;border:0;color:var(--tx2);padding:6px 0;font-size:12px;border-radius:5px;cursor:pointer}
+.seg button.on{background:var(--brand);color:#062b1a;font-weight:600}
+.chk{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);cursor:pointer}
+.chk input{accent-color:var(--brand)}
+.viewbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--tx2)}
+.viewbar b{color:var(--tx);font-weight:500}
+.stage{flex:2;position:relative;min-height:0}
+#c3d{width:100%;height:100%;display:block;cursor:grab}
+#c3d:active{cursor:grabbing}
+.hint{position:absolute;left:16px;bottom:12px;font-size:11px;color:var(--tx2)}
+.chip{position:absolute;right:14px;top:12px;display:flex;gap:6px}
+.chip span{background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:3px 9px;font-size:11px;color:var(--tx2)}
+.viewset{position:absolute;left:14px;top:12px;display:flex;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px}
+.viewset button{background:none;border:0;color:var(--tx2);font-size:11px;padding:4px 10px;border-radius:5px;cursor:pointer}
+.viewset button.on{background:var(--brand);color:#062b1a;font-weight:600}
+.xsec{border-top:1px solid var(--line);flex:1;min-height:0;padding:8px 12px;background:var(--panel)}
+#xsec{width:100%;height:100%}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;margin-bottom:7px}
+.card .k{font-size:11px;color:var(--tx2);letter-spacing:.3px}
+.card .v{font:600 21px/1.2 ui-monospace,Consolas,monospace;margin-top:1px}
+.card .u{font-size:11px;color:var(--tx2);margin-left:3px;font-weight:400}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.rsec{margin-bottom:9px}
+.rsech{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--tx);
+  letter-spacing:.2px;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.rsech:before{content:"";width:3px;height:13px;border-radius:2px;background:var(--brand)}
+.rsech .tag{margin-left:auto;font-weight:400}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px}
+.ok{background:rgba(25,224,138,.14);color:var(--brand)}
+.warn{background:rgba(245,185,59,.14);color:var(--warn)}
+.bad{background:rgba(239,91,82,.14);color:var(--danger)}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.tbl{width:100%;border-collapse:collapse;font-size:11.5px}
+.tbl td{padding:3px 0;border-bottom:1px solid var(--line);color:var(--tx2)}
+.tbl td:last-child{text-align:right;color:var(--tx);font-family:ui-monospace,Consolas,monospace}
+.tbl tr:last-child td{border:0}
+.note{font-size:11px;color:var(--tx2);line-height:1.45}
+.warnbox{border-left:2px solid var(--warn);background:rgba(245,185,59,.07);padding:8px 10px;border-radius:0 6px 6px 0;font-size:11px;color:#e3cc9a;margin-bottom:9px;display:none}
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer}
+.btn:hover{border-color:var(--brand2);color:var(--brand)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#062b1a;font-weight:700}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.primary:disabled{background:var(--panel2);border-color:var(--line);color:var(--tx2);cursor:not-allowed}
+.ract{position:sticky;bottom:-12px;margin:10px -14px -12px;padding:9px 14px 12px;z-index:6;
+  background:linear-gradient(180deg,rgba(22,27,33,.15),var(--panel) 28%);border-top:1px solid var(--line)}
+.modal{position:fixed;inset:0;background:rgba(4,7,10,.72);display:none;align-items:center;justify-content:center;z-index:60}
+.modal.on{display:flex}
+.mbox{width:min(780px,94vw);max-height:90vh;overflow:auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:14px 16px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.mhead b{font-size:14px;letter-spacing:.3px}
+#cmpChart{width:100%;height:300px;display:block;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+.mlegend{display:flex;gap:16px;font-size:11px;color:var(--tx2);margin:8px 0}
+.mlegend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+#cmpTable{margin-top:2px}
+#cmpTable tr:first-child td{color:var(--tx);font-weight:600;border-bottom:1px solid var(--tx2)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:#12171c}
+::-webkit-scrollbar-thumb{background:#3a4652;border-radius:5px;border:2px solid #12171c}
+::-webkit-scrollbar-thumb:hover{background:#4c5b6a}
+details.notes{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+details.notes summary{cursor:pointer;font-size:12px;color:var(--brand);list-style:none}
+details.notes summary::-webkit-details-marker{display:none}
+.ntxt{font-size:11px;color:var(--tx2);line-height:1.7;margin-top:8px}
+.ntxt b{color:var(--tx);font-weight:500;display:block;margin-top:8px}
+.ansys{border:1px solid var(--line);border-radius:var(--r);padding:11px 12px;margin-top:12px;background:var(--panel2)}
+.stat{font-size:11px;color:var(--tx2);margin-top:7px;line-height:1.5}
+.stat.on{color:var(--brand)} .stat.err{color:var(--danger)} .stat.busy{color:var(--warn)}
+@media (max-width:900px){
+  body{overflow:auto}
+  .app{grid-template-columns:1fr;height:auto}
+  .side,.res{border:0;border-bottom:1px solid var(--line)}
+  .stage{flex:none;height:420px}
+  .xsec{flex:none;height:170px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <h1>WPT Pad Designer</h1>
+      <div class="sub">大功率无线充电线圈参数化设计器 · v0.1</div>
+    </div>
+
+    <section class="sec">
+      <div class="sech">工程</div>
+      <div class="grp" style="margin-bottom:8px">
+        <input type="text" id="projName" placeholder="AGV-3kW-圆形-A" value="AGV-3kW-圆形-A">
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="saveBtn" style="flex:1">保存工程</button>
+          <button class="btn" id="pdfBtn" style="flex:1">导出 PDF</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <select id="projList" style="flex:1"><option value="">— 已保存工程 —</option></select>
+          <button class="btn" id="delBtn" title="删除当前选中工程">删除</button>
+        </div>
+        <button class="btn" id="cmpBtn" style="width:100%;margin-top:8px">参数扫描对比</button>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sech">工况</div>
+
+      <div class="grp">
+        <label>传输功率</label>
+        <div class="row"><input type="range" id="pw" min="500" max="30000" step="100" value="3000">
+          <span class="val" id="pwv">3000 W</span></div>
+      </div>
+
+      <div class="grp">
+        <label>应用场景</label>
+        <select id="app">
+          <option value="agv">AGV / 移动机器人</option>
+          <option value="robot">工业机器人 / 机械臂</option>
+          <option value="ev">电动汽车</option>
+          <option value="lift">提升机 / 传送线</option>
+          <option value="hand">手持 / 小家电</option>
+        </select>
+      </div>
+
+      <div class="grp">
+        <label>工作频率</label>
+        <select id="freq">
+          <option value="85000">85 kHz（推荐）</option>
+          <option value="100000">100 kHz</option>
+          <option value="140000">140 kHz</option>
+          <option value="20000">20 kHz</option>
+          <option value="22000">22 kHz</option>
+        </select>
+      </div>
+
+      <div class="grp">
+        <label>Z 轴充电距离（上下间隙） <span id="gapv" class="val" style="float:right">30 mm</span></label>
+        <input type="range" id="gap" min="8" max="80" step="1" value="30">
+      </div>
+
+      <div class="grp" style="margin-bottom:6px">
+        <label>水平偏心 X（左右） <span id="dxv" class="val" style="float:right">0 mm</span></label>
+        <input type="range" id="dx" min="-80" max="80" step="1" value="0">
+        <label style="margin-top:12px">水平偏心 Y（前后） <span id="dyv" class="val" style="float:right">0 mm</span></label>
+        <input type="range" id="dy" min="-80" max="80" step="1" value="0">
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sech">线圈</div>
+
+      <div class="grp">
+        <label>线圈结构</label>
+        <div class="seg" id="shape">
+          <button data-v="circ" class="on">圆形</button>
+          <button data-v="sq">方形</button>
+          <button data-v="dd">DD</button>
+        </div>
+      </div>
+
+      <div class="grp" style="margin-bottom:8px">
+        <label class="chk"><input type="checkbox" id="autoN" checked> 自动计算匝数</label>
+      </div>
+
+      <div class="grp" id="nwrap" style="opacity:.4">
+        <label>匝数 <span id="nv" class="val" style="float:right">12</span></label>
+        <input type="range" id="nt" min="4" max="40" step="1" value="12" disabled>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sech">磁板</div>
+
+      <div class="grp">
+        <label>磁板材料</label>
+        <select id="ferMat">
+          <option value="pc95">TDK PC95 · MnZn μ3300</option>
+          <option value="pc47">TDK PC47 · MnZn μ4400</option>
+          <option value="n97">Ferroxcube 3C97 · μ3000</option>
+          <option value="smc">软磁复合材料板 · μ250</option>
+          <option value="amor">铁基非晶 1K101 · μ12000</option>
+        </select>
+      </div>
+
+      <div class="grp">
+        <label>磁板厚度 <span id="tfv" class="val" style="float:right">5 mm</span></label>
+        <input type="range" id="tf" min="3" max="12" step="1" value="5">
+        <label style="margin-top:12px">拼块边长 <span id="tsv" class="val" style="float:right">100 mm</span></label>
+        <input type="range" id="ts" min="50" max="300" step="10" value="100">
+        <label style="margin-top:12px">拼缝宽度 <span id="gv" class="val" style="float:right">0.10 mm</span></label>
+        <input type="range" id="gt" min="0.03" max="0.60" step="0.01" value="0.10">
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sech">铝板与散热</div>
+
+      <div class="grp">
+        <label>铝板材质</label>
+        <select id="aluMat">
+          <option value="1060">1060 纯铝 · 导热 234</option>
+          <option value="6061">6061-T6 · 导热 167</option>
+          <option value="5052">5052 · 导热 138</option>
+          <option value="3003">3003 · 导热 193</option>
+          <option value="adc12">ADC12 压铸 · 导热 96</option>
+        </select>
+      </div>
+      <div class="note" style="margin:-6px 0 12px">材料按所选 μr / 电导率在 Maxwell 内现场新建（如 fer_mu3300 / alu_355），不依赖 AEDT 材料库同名条目。</div>
+
+      <div class="grp">
+        <label>铝板厚度 <span id="tav" class="val" style="float:right">3 mm</span></label>
+        <input type="range" id="ta" min="1.5" max="10" step="0.5" value="3">
+        <label style="margin-top:12px">散热筋高度（背面） <span id="fhv" class="val" style="float:right">15 mm</span></label>
+        <input type="range" id="fh" min="0" max="40" step="1" value="15">
+        <label style="margin-top:12px">环境温度 <span id="ambv" class="val" style="float:right">25 °C</span></label>
+        <input type="range" id="amb" min="-10" max="60" step="1" value="25">
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sech">基准与备注</div>
+      <div class="note">设计基准：Maxwell 2D 轴对称涡流场 @85 kHz 标定（D250 / 12 匝 / 30 mm 间隙 → L 66.3 µH、M 44.8 µH、k 0.676）。其余功率与尺寸按解析模型外推。<br>利兹线股数按市售标准规格取整（0.1 mm 单丝，50–1000 股）。</div>
+      <details class="notes">
+        <summary>▸ 设计备注（走线 / 绝缘 / 拼接 / 尺寸）</summary>
+        <div class="ntxt" id="notesBody"></div>
+      </details>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="viewbar">
+      <b id="title3d">3D 模型</b><span id="dimline"></span>
+      <label class="chk" style="margin-left:18px"><input type="checkbox" id="expl" checked> 分解视图</label>
+      <span style="margin-left:auto">拖拽旋转 · 滚轮缩放</span>
+    </div>
+    <div class="stage">
+      <canvas id="c3d"></canvas>
+      <div class="viewset" id="viewset">
+        <button data-v="iso" class="on">立体</button>
+        <button data-v="front">正视</button>
+        <button data-v="side">侧视</button>
+      </div>
+      <div class="chip"><span id="chipShape">圆形</span><span id="chipGap">间隙 30 mm</span></div>
+      <div class="hint">上/下两块：发射板与接收板（接收板镜像，线圈相对）。Z 轴滑块调上下高度，X/Y 滑块调水平偏心</div>
+    </div>
+    <div class="xsec"><svg id="xsec" viewBox="0 0 760 190" preserveAspectRatio="xMidYMid meet"></svg></div>
+  </main>
+
+  <aside class="res">
+    <div class="warnbox" id="warnbox"></div>
+
+    <div class="rsec">
+      <div class="rsech">核心结果</div>
+      <div class="card">
+        <div class="k">耦合系数 k</div>
+        <div class="v" id="rk">—</div>
+        <div class="u" id="rk2" style="font-size:11px;color:var(--tx2)"></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><div class="k">自感 L</div><div class="v" id="rL" style="font-size:18px"></div></div>
+        <div class="card"><div class="k">互感 M</div><div class="v" id="rM" style="font-size:18px"></div></div>
+      </div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsech">线圈与电参数</div>
+      <table class="tbl" id="params"></table>
+    </div>
+
+    <div class="rsec">
+      <div class="rsech">损耗 · 效率 · 温升</div>
+      <table class="tbl" id="loss"></table>
+    </div>
+
+    <div class="rsec">
+      <div class="rsech">结构尺寸</div>
+      <table class="tbl" id="dims"></table>
+    </div>
+
+    <div class="rsec">
+      <div class="rsech">设计合规性 <span id="compTag" class="tag ok" style="margin-left:auto"></span></div>
+      <table class="tbl" id="comp"></table>
+      <div class="note" id="compNote" style="margin-top:6px"></div>
+    </div>
+
+    <div class="rsec">
+      <div class="rsech">ANSYS 真仿真 <span class="tag" id="aedtTag" style="float:right">检测中…</span></div>
+      <button class="btn" id="solveBtn" style="width:100%;margin-bottom:8px">▶ 连接 ANSYS 求解</button>
+      <div class="stat" id="astat">未连接 · 需先运行 wpt_bridge.py</div>
+      <table class="tbl" id="fem"></table>
+      <div class="note" style="margin-top:8px">求解结果会回填到本软件：L / M / k 与铝板涡流损耗写入上表，并与本页解析模型逐项对比偏差，同时写入 PDF 设计报告。<br>FEM 已按所选拼块/拼缝径向切分磁板建模；轴对称只能表达径向缝，环向缝无法体现，故 FEM 仍略高于解析值（约 20–25%）。</div>
+      <button class="btn" id="export" style="width:100%;margin-top:10px">导出参数数据（JSON）</button>
+      <div class="note" style="margin-top:6px">JSON 是给软件或同事读取的完整数据快照（全部输入 + 计算结果 + FEM 值），可用于归档、版本对比或二次开发；对外汇报请用左栏「导出 PDF」。</div>
+    </div>
+
+    <div class="ract">
+      <div class="note" style="margin-bottom:6px">解析结果随参数改动自动更新；需要 ANSYS 校核时点下面按钮</div>
+      <button class="btn primary" id="solveBtn2" style="width:100%">▶ 连接 ANSYS 求解</button>
+    </div>
+  </aside>
+</div>
+
+<div id="reportWrap" style="display:none;position:fixed;inset:0;z-index:99;background:rgba(6,9,12,.82);flex-direction:column;padding:16px">
+  <div class="row" style="justify-content:flex-end;gap:8px;margin-bottom:10px">
+    <button class="btn" id="rpPrint">打印 / 另存为 PDF</button>
+    <button class="btn" id="rpClose">关闭</button>
+  </div>
+  <iframe id="rpFrame" style="flex:1;width:100%;border:0;background:#fff;border-radius:8px"></iframe>
+</div>
+
+<div class="modal" id="cmpModal">
+  <div class="mbox">
+    <div class="mhead">
+      <b>参数扫描对比</b>
+      <div class="row">
+        <select id="cmpVar" style="width:190px">
+          <option value="gap">Z 轴间隙 10–80 mm</option>
+          <option value="delta">水平偏心 0–80 mm</option>
+          <option value="P">传输功率 500–10000 W</option>
+          <option value="freq">工作频率 20–140 kHz</option>
+        </select>
+        <button class="btn" id="cmpClose">关闭</button>
+      </div>
+    </div>
+    <canvas id="cmpChart"></canvas>
+    <div class="mlegend">
+      <span><i style="background:#19e08a"></i>耦合系数 k</span>
+      <span><i style="background:#56a8ff"></i>充电效率 %</span>
+      <span><i style="background:#f5b93b"></i>铝板表面温度 ℃</span>
+    </div>
+    <table class="tbl" id="cmpTable"></table>
+    <div class="note" style="margin-top:8px">扫描以当前工程参数为基准逐点重算解析模型，只改变所选参数，其余条件保持不变。</div>
+  </div>
+</div>
+
+<script>
+const MU0=4*Math.PI*1e-7;
+const RHO_CU=1.724e-8, J_MAX=4.0, H_CONV=10, FACE_FACTOR=1.3;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+
+/* 磁板材料库：mu 相对磁导率 / bs 饱和磁密 T / rho kg·m⁻³ / loss 相对损耗系数 */
+const FER_MAT={
+  pc95:{n:'TDK PC95',mu:3300,bs:0.53,rho:4800,loss:1.00,tip:'85 kHz 大功率首选，损耗最低'},
+  pc47:{n:'TDK PC47',mu:4400,bs:0.53,rho:4800,loss:1.15,tip:'磁导率更高，饱和磁密与 PC95 相同'},
+  n97 :{n:'Ferroxcube 3C97',mu:3000,bs:0.53,rho:4800,loss:0.92,tip:'100 kHz 以上低损耗'},
+  smc :{n:'软磁复合材料板',mu:250,bs:1.20,rho:6200,loss:1.60,tip:'μ 低但可压异形、耐饱和、绝缘性好'},
+  amor:{n:'铁基非晶 1K101',mu:12000,bs:1.50,rho:7180,loss:3.20,tip:'μ 高但高频损耗大，必须薄带叠片+绝缘'}
+};
+/* 铝板材料库：sig 电导率 S/m / k 导热 W·m⁻¹K⁻¹ / rho kg·m⁻³ */
+const ALU_MAT={
+  '1060':{n:'1060 纯铝',sig:3.55e7,k:234,rho:2705},
+  '6061':{n:'6061-T6',sig:2.46e7,k:167,rho:2700},
+  '5052':{n:'5052',sig:1.90e7,k:138,rho:2680},
+  '3003':{n:'3003',sig:2.00e7,k:193,rho:2730},
+  adc12:{n:'ADC12 压铸',sig:1.10e7,k:96,rho:2700}
+};
+
+/* Wheeler 平面线圈电感（单层等效） */
+function wheeler(N,OD,ID,shape){
+  const dAvg=(OD+ID)/2*1e-3, rho=(OD-ID)/(OD+ID);
+  if(shape==='circ'){
+    return MU0*N*N*dAvg/2*(Math.log(2.46/Math.max(rho,0.02))+0.2*rho*rho);
+  }
+  const base=2.34*MU0*N*N*dAvg/(1+2.75*rho);
+  return shape==='dd'? base*0.55 : base;
+}
+
+/* 拼缝等效磁导率：μeff = μr / (1 + μr·Σg/ℓ) */
+function effMu(Dfer,tile,gapTile,muR){
+  const joints=Math.max(0,Math.ceil(Dfer/tile)-1);
+  const sumG=joints*gapTile*1e-3, len=Dfer/2*1e-3;
+  const c=(typeof window.__GAPK==='number')?window.__GAPK:1;
+  return muR/(1+c*muR*sumG/Math.max(len,1e-4));
+}
+
+/* 完全椭圆积分 K(k)、E(k)（AGM 算法） */
+function ellipKE(k){
+  const m=k*k;
+  let a=1,b=Math.sqrt(1-m),s=0.5*m,pw=0.5;
+  for(let i=0;i<40;i++){
+    const an=(a+b)/2, bn=Math.sqrt(a*b), cn=(a-b)/2;
+    pw*=2; s+=pw*cn*cn;
+    a=an; b=bn;
+    if(Math.abs(cn)<1e-12) break;
+  }
+  const K=Math.PI/(2*a);
+  return [K,K*(1-s)];
+}
+
+/* 两圆环（半径 a1、a2，轴向 z，横向 d）互感，单位任意一致即可 */
+function loopM(a1,a2,z,d){
+  const s=(a1+a2)*(a1+a2)+z*z+d*d;
+  const k2=4*a1*a2/s;
+  if(!(k2>1e-9)) return 0;
+  const k=Math.sqrt(Math.min(k2,0.999999));
+  const [K,E]=ellipKE(k);
+  return Math.sqrt(a1*a2)*((2/k-k)*K-(2/k)*E);
+}
+
+/* 偏心导致的互感衰减：δ 为水平合偏心（mm），按 N 匝分布逐对线圈求和 */
+function misFactor(N,Ri,Ro,z,delta){
+  if(!(delta>0.05)) return 1;
+  const r=[];
+  for(let i=0;i<N;i++) r.push(Ri+(i+0.5)*(Ro-Ri)/N);
+  let m0=0,m1=0;
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+    m0+=loopM(r[i],r[j],z,0);
+    m1+=loopM(r[i],r[j],z,delta);
+  }
+  return m0>1e-12?clamp(m1/m0,0,1):1;
+}
+
+function compute(inp){
+  const P=inp.P, w=2*Math.PI*inp.freq, shape=inp.shape;
+  const FM=FER_MAT[inp.ferMat]||FER_MAT.pc95, AM=ALU_MAT[inp.aluMat]||ALU_MAT['6061'];
+  const g=inp.gap, sFac=shape==='sq'?1.06:(shape==='dd'?1.10:1.0);
+
+  /* 1) 线圈外径：功率 1/4 次方、间隙 0.22 次方缩放 */
+  let OD=clamp(250*Math.pow(P/3000,0.25)*Math.pow(g/30,0.22)*sFac,90,900);
+  const ID=Math.round(OD*(shape==='circ'?0.48:0.30));
+  OD=Math.round(OD);
+
+  /* 2) 磁板 / 铝板 / 外壳 */
+  const margin=Math.max(15,Math.round(0.1*OD));
+  let Dfer=OD+2*margin;
+  if(shape==='dd') Dfer=Math.round(Dfer*0.98);
+  const Dalu=Math.round(Dfer*0.97);
+  const Dhous=Math.round(Dalu+2*Math.max(6,Math.round(0.02*OD)));
+  const tile=inp.tile, nTile=Math.max(1,Math.ceil(Dfer/tile));
+
+  /* 3) 匝数 */
+  let N=inp.autoN?clamp(Math.round(12*Math.sqrt(OD/250)),6,40):inp.N;
+  const mu=effMu(Dfer,tile,inp.gapTile,FM.mu);
+  const F0=1+Math.pow(FM.mu/3000,0.30);          /* μr=3000 时基准增益 2.0 */
+  const F=F0*(0.82+0.18*Math.sqrt(mu/FM.mu));    /* 拼缝降级 */
+
+  let Lw=wheeler(N,OD,ID,shape);
+  let L=Lw*F;
+
+  /* 4) 耦合系数经验式（由 20/30/50mm 三点拟合）× 偏心衰减 */
+  const dx=+inp.dx||0, dy=+inp.dy||0;
+  const delta=Math.hypot(dx,dy);
+  const kg=1/(1+17*Math.pow(g/Math.max(OD,1),1.667));
+  const kd=(shape==='dd')?1.08:(shape==='sq'?0.97:1.0);
+  const fmis=n=>misFactor(n,ID/2,OD/2,g,delta);
+  let k=clamp(kg*kd*fmis(N),0.03,0.92);
+  let M=k*L;
+
+  /* 5) 自动增匝直到电流合理 */
+  if(inp.autoN){
+    for(let i=0;i<40;i++){
+      const I=Math.sqrt(1.15*P/(w*M));
+      if(I<=20) break;
+      N++; Lw=wheeler(N,OD,ID,shape); L=Lw*F;
+      k=clamp(kg*kd*fmis(N),0.03,0.92);
+      M=k*L;
+    }
+  }
+  const fmisVal=fmis(N), misDecay=1-fmisVal;
+
+  /* 6) 电参数 */
+  const Im=Math.sqrt(1.15*P/(w*M));
+  const Vcoil=w*L*Im;
+  const Cap=1/(w*w*L)*1e9;
+  let Acu=Math.max(0.5,Im/J_MAX);
+  /* 利兹线按市售标准股数取整（单丝 0.1 mm），避免出现 404 这类非标规格 */
+  const LITZ=[50,75,100,125,150,200,250,300,350,400,450,500,600,700,800,1000];
+  const nStrNeed=Math.max(1,Math.ceil(Acu/(Math.PI*0.05*0.05)));
+  const nStr=LITZ.reduce((a,b)=>Math.abs(b-nStrNeed)<Math.abs(a-nStrNeed)?b:a);
+  Acu=nStr*Math.PI*0.0025;
+  const rAvg=(OD+ID)/4*1e-3;
+  const lenWire=N*2*Math.PI*rAvg;
+  const Rcu=RHO_CU*lenWire/(Acu*1e-6)*1.35;
+  const Pcu=Im*Im*Rcu;
+
+  /* 7) 磁密与饱和裕度 */
+  const Bmax=MU0*N*Im/(g*1e-3)*1e3;             /* mT */
+  const satMargin=FM.bs*1e3/Math.max(Bmax,0.01);
+
+  /* 8) 铝板涡流损耗（3kW/5mm 磁板标定 78.4W；材料与拼缝修正） */
+  const fFer=Math.pow(inp.tf/5,-0.357);
+  const fGapLoss=Math.pow(30/g,0.5);
+  const fTile=Math.pow(2.0/F,2);
+  const fAlu=Math.sqrt(3.55e7/AM.sig);
+  const fMisAlu=Math.min(1.8,1+0.6*Math.pow(delta/Math.max(OD/2,1),2));  /* 偏心使漏磁外扩，铝板涡流增大 */
+  const Peddy=P*0.02613*fFer*fGapLoss*fTile*FM.loss*fAlu*fMisAlu;
+
+  /* 9) 损耗：铜损 + 铝板涡流 + 磁板铁损（Steinmetz 估算，PC95 基准 300 kW/m³ @ 100 kHz / 0.2 T） */
+  const Vfer=Math.PI/4*Math.pow(Dfer*1e-3,2)*inp.tf*1e-3;
+  const Pcore=300*Math.pow(inp.freq/1e5,1.6)*Math.pow(Math.max(Bmax,1)/200,2.4)*FM.loss*Vfer*1e3;
+  const Pplate=Pcu+Peddy+Pcore;
+  const finH=Math.max(0,+inp.finH||0);
+  const amb=inp.amb==null?25:+inp.amb;
+  const nFin=finH>0?Math.max(3,Math.round(Dhous/18)):0;
+  const Afin=finH>0?nFin*2*finH*Dhous*0.92*1e-6:0;        /* m²：筋数×两侧×筋高×筋长 */
+  const Aalu=FACE_FACTOR*Math.PI/4*Math.pow(Dalu*1e-3,2);
+  const Aeff=Aalu+Afin*0.85;                               /* 筋效率 0.85 */
+  const finFactor=Aeff/Aalu;
+  const fK=Math.pow(234/AM.k,0.35);
+  const dT=Pplate/(H_CONV*Aalu)*fK;                        /* 裸板（无筋）温升 */
+  const dTfin=Pplate/(H_CONV*Aeff)*fK;                     /* 加散热筋后温升 */
+  const aluT=amb+dTfin;                                    /* 铝板表面温度 */
+  const finT=amb+dTfin*0.82;                               /* 散热筋平均表面温度 */
+  const coilT=aluT+3+Pcu*0.15;                             /* 线圈估算温度 */
+  const Aneed=Pplate/(H_CONV*40);
+
+  /* 10) 效率：P 为输出功率，损耗按两端计（铜损 + 铝板涡流） */
+  const Ploss=2*Pplate;
+  const etaCoil=100*P/(P+Ploss);                           /* 线圈-线圈 */
+  const etaSys=etaCoil*0.95;                               /* 含逆变/整流估算 */
+
+  /* 11) 结构 */
+  const coilH=4, ins=0.2, tim=0.5, base=1.5, shell=3;
+  const stack=shell+coilH+ins+inp.tf+tim+inp.ta+base+finH;
+  const ferMass=Math.PI/4*Math.pow(Dfer*1e-3,2)*inp.tf*1e-3*FM.rho;
+  const aluMass=Math.PI/4*Math.pow(Dalu*1e-3,2)*inp.ta*1e-3*AM.rho;
+  const lenTurn=2*Math.PI*rAvg*1000;
+
+  /* 12) 设计准则校核（工程经验限值，非第三方认证） */
+  const checks=[
+    {n:'磁板饱和裕度',v:satMargin.toFixed(1)+' ×',lim:'≥ 1.5 ×',ok:satMargin>=1.5},
+    {n:'磁板等效磁导率',v:mu.toFixed(0),lim:'≥ 800',ok:mu>=800},
+    {n:'加散热筋后温升',v:dTfin.toFixed(0)+' ℃',lim:'≤ 55 ℃',ok:dTfin<=55},
+    {n:'散热筋表面温度',v:finT.toFixed(0)+' °C',lim:'≤ 70 °C（接触安全）',ok:finT<=70},
+    {n:'水平偏心 δ',v:delta.toFixed(0)+' mm',lim:'≤ '+(0.15*OD).toFixed(0)+' mm（15% OD）',ok:delta<=0.15*OD},
+    {n:'间隙 / 外径',v:(g/OD*100).toFixed(1)+' %',lim:'≤ 25 %',ok:g/OD<=0.25},
+    {n:'耦合系数 k',v:k.toFixed(3),lim:'≥ 0.35',ok:k>=0.35},
+    {n:'充电效率（线圈-线圈）',v:etaCoil.toFixed(1)+' %',lim:'≥ 90 %',ok:etaCoil>=90}
+  ];
+
+  return {P,shape,gap:g,freq:inp.freq,app:inp.app,OD,ID,Dfer,Dalu,Dhous,N,tile,nTile,gapTile:inp.gapTile,
+    tf:inp.tf,ta:inp.ta,ferMat:inp.ferMat,aluMat:inp.aluMat,
+    dx,dy,delta,fmis:fmisVal,misDecay,
+    ferName:FM.n,aluName:AM.n,ferTip:FM.tip,mu0:FM.mu,bs:FM.bs,aluSig:AM.sig,
+    mu,F,L:L*1e6,M:M*1e6,k,Im,Vcoil,Cap,Acu,nStr,nStrNeed,Rcu:Rcu*1000,Pcu,Peddy,Pcore,Pplate,
+    Bmax,satMargin,Aalu,Afin,Aeff,finFactor,finH,nFin,amb,aluT,finT,coilT,dT,dTfin,Aneed,
+    Ploss,etaCoil,etaSys,checks,
+    stack,ferMass,aluMass,lenWire,lenTurn,coilH,ins,tim,base,shell};
+}
+
+/* ---------- 格式化 ---------- */
+const fmt=(v,d=1)=>{ if(!isFinite(v))return '—';
+  if(Math.abs(v)>=1000)return Method(v,0); return v.toFixed(d); };
+function Method(v,d){return v.toLocaleString('en-US',{maximumFractionDigits:d});}
+
+/* ---------- 2D 截面 ---------- */
+const CLR={shell:'#3a4d61',coil:'#a8762a',coilBody:'#1a2531',ins:'#63502f',fer:'#2d7d5b',tim:'#455767',alu:'#8d97a2',base:'#22303e'};
+
+function drawXsec(d){
+  const svg=document.getElementById('xsec');
+  const x0=70,x1=690,top=28,bot=150;
+  const L=[
+    {h:d.shell,c:CLR.shell,n:'外壳'},
+    {h:d.coilH,c:CLR.coilBody,n:'线圈 '+d.N+' 匝'},
+    {h:d.ins,c:CLR.ins,n:''},
+    {h:d.tf,c:CLR.fer,n:'磁板 '+d.tf+' mm'},
+    {h:d.tim,c:CLR.tim,n:''},
+    {h:d.ta,c:CLR.alu,n:'铝板 '+d.ta+' mm'},
+    {h:d.finH,c:'#6d7b88',n:d.finH>0?'散热筋 '+d.finH+' mm':'',fin:true},
+    {h:d.base,c:CLR.base,n:''}
+  ].filter(l=>l.h>0);
+  const tot=L.reduce((a,b)=>a+b.h,0), sc=(bot-top)/tot;
+  let y=top, s='';
+  s+=`<text x="${x0}" y="16" fill="#8b98a9" font-size="11">俯视投影宽 ${d.Dhous} mm · 总厚 ${d.stack.toFixed(1)} mm</text>`;
+  for(const l of L){
+    const h=Math.max(4,l.h*sc);
+    s+=`<rect x="${x0}" y="${y}" width="${x1-x0}" height="${h}" fill="${l.c}" stroke="#0f1216" stroke-width="1"/>`;
+    if(l.fin) for(let i=0;i<14;i++){
+      const xx=x0+(x1-x0)*(i+0.5)/14;
+      s+=`<line x1="${xx}" y1="${y+1}" x2="${xx}" y2="${y+h-1}" stroke="#0f1216" stroke-width="2.4"/>`;
+    }
+    if(h>11&&l.n) s+=`<text x="${x0+10}" y="${y+h/2+4}" fill="#dfe8f2" font-size="11">${l.n}</text>`;
+    y+=h;
+  }
+  /* 拼缝 */
+  const fy=top+d.shell*sc+d.coilH*sc+d.ins*sc, fh=Math.max(4,d.tf*sc);
+  for(let i=1;i<d.nTile;i++){
+    const xx=x0+(x1-x0)*i/d.nTile;
+    s+=`<rect x="${xx-1}" y="${fy}" width="2" height="${fh}" fill="#0f1216"/>`;
+  }
+  /* 线圈圆点 */
+  const cyY=top+d.shell*sc+Math.max(4,d.coilH*sc)/2;
+  for(let i=0;i<9;i++){
+    const xx=x0+(x1-x0)*(0.18+0.08*i);
+    s+=`<circle cx="${xx}" cy="${cyY}" r="3.4" fill="none" stroke="#c99b3a" stroke-width="1.2"/>`;
+  }
+  /* 尺寸标注 */
+  const dy=bot+18;
+  s+=`<line x1="${x0}" y1="${dy}" x2="${x1}" y2="${dy}" stroke="#5a6b7d" stroke-width="1"/>`;
+  s+=`<text x="${(x0+x1)/2}" y="${dy+14}" fill="#8b98a9" font-size="11" text-anchor="middle">磁板 D ${d.Dfer} · 铝板 D ${d.Dalu} · ${d.nTile}×${d.nTile} 拼块</text>`;
+  svg.innerHTML=s;
+}
+
+/* ---------- 3D ---------- */
+const S3={yaw:-0.68,pitch:0.34,zoom:1,ex:3,ortho:false,faces:[],R:300,ann:null,cv:null,ctx:null,drag:null};
+
+function hex2rgb(h){const n=parseInt(h.slice(1),16);return[n>>16&255,n>>8&255,n&255];}
+function shade(h,k){const c=hex2rgb(h);return`rgb(${clamp(c[0]*k,0,255)|0},${clamp(c[1]*k,0,255)|0},${clamp(c[2]*k,0,255)|0})`;}
+
+function build3D(d){
+  const F=[];
+  const QUAD=(a,b,c,e,col,flat,al)=>F.push({p:[a,b,c,e],c:col,flat:!!flat,a:al==null?1:al});
+  const box=(cx,cz,w,dep,y0,y1,col,a)=>{
+    const x0=cx-w/2,x1=cx+w/2,z0=cz-dep/2,z1=cz+dep/2;
+    QUAD([x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1],col,false,a);
+    QUAD([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],shade(col,0.6),false,a);
+    QUAD([x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],shade(col,0.85),false,a);
+    QUAD([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],shade(col,0.85),false,a);
+    QUAD([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],shade(col,0.75),false,a);
+    QUAD([x1,y0,z0],[x1,y0,z1],[x1,y1,z1],[x1,y1,z0],shade(col,0.9),false,a);
+  };
+  const cyl=(cx,cz,r0,r1,y0,y1,col,seg=96,a)=>{
+    const P1=[],P0=[];
+    for(let i=0;i<seg;i++){
+      const t=i/seg*2*Math.PI, c=Math.cos(t), s=Math.sin(t);
+      P1.push([cx+r1*c,y1,cz+r1*s]);
+      P0.push([cx+r0*c,y0,cz+r0*s]);
+    }
+    for(let i=0;i<seg;i++){
+      const j=(i+1)%seg;
+      QUAD(P1[i],P1[j],P0[j],P0[i],col,false,a);
+    }
+    /* 端面用整块多边形，避免三角扇拼接出现放射状接缝 */
+    if(r1>0) F.push({p:r0>0?P1.concat(P0.slice().reverse()):P1,c:col,flat:true,a});
+    if(r0>0) F.push({p:r0>0?P0.concat(P1.slice().reverse()):P0,c:shade(col,0.82),flat:true,a});
+  };
+
+  /* 单块板的层叠（局部 y 从 0 起）：铝板→导热胶→磁板→绝缘→线圈→外壳 */
+  const ex=S3.ex;
+  const L=[]; let y=0;
+  const add=(k,th)=>{ L.push({k,a:y,b:y+th}); y+=th+ex; };
+  add('alu',d.ta); add('tim',d.tim); add('fer',d.tf); add('ins',d.ins); add('coil',d.coilH);
+  L.push({k:'shell',a:y,b:y+d.shell}); y+=d.shell;
+  const finH=Math.max(0,+d.finH||0);
+  const top=y, H=2*(top+finH)+d.gap;
+  const yb=-H/2+finH;            /* 发射板铝板底面（散热筋在其外侧） */
+  const yt=H/2-finH;             /* 接收板铝板顶面 */
+  const dx=+d.dx||0, dz=+d.dy||0;
+
+  const Rf=d.Dfer/2, Ra=d.Dalu/2, Ro=d.OD/2, Ri=d.ID/2, Rh=d.Dhous/2;
+  const circ={alu:[0,Ra],tim:[0,Rf],fer:[0,Rf],ins:[0,Rf],shell:[0,Rh]};
+
+  const layer=(k,y0,y1,ox,oz)=>{
+    if(d.shape==='circ'){
+      if(k==='coil'){ cyl(ox,oz,Ri,Ro,y0,y1,CLR.coil); cyl(ox,oz,0,Ri,y0,y1,CLR.ins); return; }
+      const r=circ[k];
+      if(k==='shell') cyl(ox,oz,Math.max(r[1]-5,1),r[1],y0,y1,CLR.shell,96,.55);
+      else cyl(ox,oz,r[0],r[1],y0,y1,CLR[k]||CLR.ins);
+      return;
+    }
+    if(d.shape==='sq'){
+      if(k==='coil'){ box(ox,oz,d.OD,d.OD,y0,y1,CLR.coil); return; }
+      if(k==='fer'){
+        const n=d.nTile, s=d.tile, g=Math.max(0.6,d.gapTile*3), st=-(n-1)*(s+g)/2;
+        for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+          const cx=st+i*(s+g), cz=st+j*(s+g);
+          if(Math.max(Math.abs(cx),Math.abs(cz))>d.Dfer/2+s*0.5) continue;
+          box(ox+cx,oz+cz,s,s,y0,y1,CLR.fer);
+        }
+        return;
+      }
+      box(ox,oz,d.Dhous,d.Dhous,y0,y1,CLR[k]||CLR.ins,k==='shell'?.16:1);
+      return;
+    }
+    /* DD：两个半圆/半方并排 */
+    const off=d.Dhous/4;
+    [-1,1].forEach(sgn=>{
+      const cx=ox+sgn*off;
+      if(k==='coil'){ box(cx,oz,d.OD/2-2,d.OD,y0,y1,CLR.coil); return; }
+      if(k==='fer'){
+        const n=Math.max(2,d.nTile), s=d.tile, g=Math.max(0.6,d.gapTile*3);
+        for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+          box(cx+(-(n-1)*(s+g)/2+i*(s+g))*0.5,oz+(-(n-1)*(s+g)/2+j*(s+g)),s*0.5,s,y0,y1,CLR.fer);
+        }
+        return;
+      }
+      box(cx,oz,d.Dhous/2-2,d.Dhous,y0,y1,CLR[k]||CLR.ins,k==='shell'?.16:1);
+    });
+  };
+
+  const pads=[
+    {ox:0,oz:0,y:(a,b)=>[yb+a,yb+b]},          /* 发射板：铝板在下、外壳在上 */
+    {ox:dx,oz:dz,y:(a,b)=>[yt-b,yt-a]}         /* 接收板：镜像，线圈朝下 */
+  ];
+  for(const p of pads) for(const l of L){
+    const [y0,y1]=p.y(l.a,l.b);
+    layer(l.k,y0,y1,p.ox,p.oz);
+  }
+
+  /* 铝板背面散热筋：直筋，高度 finH */
+  if(finH>0){
+    const Rh=d.Dhous/2, nf=Math.max(3,Math.round(d.Dhous/18));
+    for(let i=0;i<nf;i++){
+      const zc=-Rh*0.78+i*(Rh*1.56/(nf-1));
+      const w=d.shape==='circ'?2*Math.sqrt(Math.max(0,Rh*Rh-zc*zc))*0.94:d.Dhous*0.92;
+      if(w<10) continue;
+      box(0,zc,w,2.2,yb-finH,yb,shade(CLR.alu,0.9));
+      box(dx,dz+zc,w,2.2,yt,yt+finH,shade(CLR.alu,0.9));
+    }
+  }
+
+  S3.faces=F;
+  S3.ann={yb,yt,top,gap:d.gap,dx,dz};
+  S3.R=Math.max(d.Dhous+2*Math.hypot(dx,dz),H)*0.62;
+}
+
+function fitCanvas(){
+  const cv=S3.cv, dpr=Math.min(2,window.devicePixelRatio||1);
+  const r=cv.getBoundingClientRect();
+  cv.width=r.width*dpr; cv.height=r.height*dpr;
+  S3.ctx.setTransform(dpr,0,0,dpr,0,0);
+  S3.w=r.width; S3.h=r.height;
+}
+
+function draw3D(){
+  const ctx=S3.ctx, w=S3.w||600, h=S3.h||400;
+  ctx.clearRect(0,0,w,h);
+  const cyw=Math.cos(S3.yaw), syw=Math.sin(S3.yaw);
+  const cp=Math.cos(S3.pitch), sp=-Math.sin(S3.pitch);
+  const DIST=S3.R*3.3, FOC=Math.min(w,h)*1.72*S3.zoom, ox=w/2, oy=h/2;
+  const tr=v=>{
+    const x=v[0]*cyw - v[2]*syw, z1=v[0]*syw + v[2]*cyw;
+    const y=v[1]*cp - z1*sp, z2=v[1]*sp + z1*cp;
+    const s=S3.ortho?FOC/DIST:FOC/(z2+DIST);   /* 正/侧视为正交投影，纯二维 */
+    return [ox+x*s, oy-y*s, z2];
+  };
+  const L=[-0.45,0.55,0.70];
+  const out=[];
+  for(const f of S3.faces){
+    const q=f.p.map(tr);
+    let z=0; for(const t of q) z+=t[2];
+    out.push({q,c:f.c,z:z/q.length,flat:f.flat,a:f.a});
+  }
+  out.sort((a,b)=>b.z-a.z);
+  ctx.lineJoin='round';
+  for(const f of out){
+    const a=f.q[0],b=f.q[1],c=f.q[2];
+    const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+    let n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+    const m=Math.hypot(n[0],n[1],n[2])||1;
+    const lit=Math.abs((n[0]*L[0]+n[1]*L[1]+n[2]*L[2])/m);
+    ctx.globalAlpha=f.a;
+    ctx.beginPath();
+    ctx.moveTo(f.q[0][0],f.q[0][1]);
+    for(let i=1;i<f.q.length;i++)ctx.lineTo(f.q[i][0],f.q[i][1]);
+    ctx.closePath();
+    ctx.fillStyle=f.flat?shade(f.c,1.0):shade(f.c,0.55+0.55*lit);
+    ctx.fill();
+    if(!f.flat||f.a>=1){ ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=0.8; ctx.stroke(); }
+  }
+  ctx.globalAlpha=1;
+
+  /* 尺寸标注：Z 间隙 + 水平偏心 */
+  const an=S3.ann;
+  if(an){
+    const xr=S3.R*1.02;
+    const g0=tr([xr,an.yb+an.top,0]), g1=tr([xr,an.yt-an.top,0]);
+    ctx.strokeStyle='rgba(120,196,255,.9)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(g0[0],g0[1]); ctx.lineTo(g1[0],g1[1]); ctx.stroke();
+    [g0,g1].forEach(p=>{ctx.beginPath();ctx.moveTo(p[0]-6,p[1]);ctx.lineTo(p[0]+6,p[1]);ctx.stroke();});
+    ctx.fillStyle='rgba(150,210,255,.95)';
+    ctx.font='11px ui-monospace,Consolas,monospace';
+    ctx.fillText('Z '+an.gap+' mm',g0[0]+9,(g0[1]+g1[1])/2);
+    if(Math.hypot(an.dx,an.dz)>0.5){
+      const p0=tr([0,an.yb+an.top,0]), p1=tr([an.dx,an.yb+an.top,an.dz]);
+      ctx.strokeStyle='rgba(245,185,59,.95)';
+      ctx.beginPath(); ctx.moveTo(p0[0],p0[1]); ctx.lineTo(p1[0],p1[1]); ctx.stroke();
+      ctx.fillStyle='rgba(245,185,59,.95)';
+      ctx.fillText('δ '+Math.hypot(an.dx,an.dz).toFixed(0)+' mm',(p0[0]+p1[0])/2-20,(p0[1]+p1[1])/2-6);
+    }
+  }
+}
+
+/* ---------- UI ---------- */
+const $=id=>document.getElementById(id);
+const state={shape:'circ',last:null,fem:null};
+const APP_GAP={agv:30,robot:20,ev:80,lift:15,hand:10};
+const APP_NAME={agv:'AGV / 移动机器人',robot:'工业机器人 / 机械臂',ev:'电动汽车',lift:'提升机 / 传送线',hand:'手持 / 小家电'};
+
+function readInputs(){
+  return {P:+$('pw').value,gap:+$('gap').value,freq:+$('freq').value,
+    dx:+$('dx').value,dy:+$('dy').value,app:$('app').value,
+    tf:+$('tf').value,ta:+$('ta').value,finH:+$('fh').value,amb:+$('amb').value,tile:+$('ts').value,
+    gapTile:+$('gt').value,autoN:$('autoN').checked,N:+$('nt').value,shape:state.shape,
+    ferMat:$('ferMat').value,aluMat:$('aluMat').value};
+}
+const row=(a,b)=>`<tr><td>${a}</td><td>${b}</td></tr>`;
+
+function update(){
+  const inp=readInputs(), d=compute(inp);
+
+  $('rk').textContent=d.k.toFixed(3);
+  const q=d.k>0.6?['优','ok']:(d.k>0.35?['可用','warn']:['偏低','bad']);
+  const dirTxt=d.delta>0.5?` · 方向 ${(Math.atan2(d.dy,d.dx)*180/Math.PI).toFixed(0)}°`:'';
+  $('rk2').innerHTML=`<span class="tag ${q[1]}">${q[0]}</span> 间隙/外径 = ${(d.gap/d.OD*100).toFixed(1)}%`
+    +(d.delta>0.5?`<br>偏心 δ ${d.delta.toFixed(0)} mm${dirTxt} · k 衰减 ${(d.misDecay*100).toFixed(0)}%`:'');
+  $('rL').innerHTML=`${d.L.toFixed(1)}<span class="u">µH</span>`;
+  $('rM').innerHTML=`${d.M.toFixed(1)}<span class="u">µH</span>`;
+
+  $('params').innerHTML=
+    row('磁板材料',d.ferName)+
+    row('等效磁导率',d.mu.toFixed(0))+
+    row('匝数 N',d.N)+
+    row('线圈电流',d.Im.toFixed(1)+' A')+
+    row('线圈电压',d.Vcoil.toFixed(0)+' V')+
+    row('补偿电容',d.Cap.toFixed(1)+' nF')+
+    row('线径',d.Acu.toFixed(1)+' mm²')+
+    row('利兹线（市售标准）',d.nStr+' × 0.1 mm')+
+    row('理论股数 → 取整',d.nStrNeed+' → '+d.nStr)+
+    row('直流电阻',d.Rcu.toFixed(1)+' mΩ')+
+    row('气隙磁密',d.Bmax.toFixed(1)+' mT')+
+    row('饱和裕度',d.satMargin.toFixed(0)+' ×')+
+    row('Z 轴间隙',d.gap+' mm')+
+    row('X / Y 偏心',d.dx+' / '+d.dy+' mm')+
+    row('合偏心 δ',d.delta.toFixed(1)+' mm')+
+    row('工作频率',(d.freq/1000).toFixed(0)+' kHz');
+
+  $('loss').innerHTML=
+    row('铜损（单端）',d.Pcu.toFixed(1)+' W')+
+    row('铝板涡流（单端）',d.Peddy.toFixed(0)+' W')+
+    row('磁板铁损（单端）',d.Pcore.toFixed(0)+' W')+
+    row('单端损耗合计',d.Pplate.toFixed(0)+' W')+
+    row('两端总损耗',d.Ploss.toFixed(0)+' W')+
+    row('充电效率（线圈-线圈）',d.etaCoil.toFixed(1)+' %')+
+    row('系统效率（含变换器）',d.etaSys.toFixed(1)+' %')+
+    row('环境温度',d.amb+' °C')+
+    row('裸板温升（无筋）',d.dT.toFixed(0)+' ℃')+
+    row('加筋后温升',d.dTfin.toFixed(0)+' ℃')+
+    row('铝板表面温度',d.aluT.toFixed(0)+' °C')+
+    row('散热筋表面温度',d.finT.toFixed(0)+' °C')+
+    row('线圈估算温度',d.coilT.toFixed(0)+' °C')+
+    row('散热筋 数量×高度',d.nFin+' × '+d.finH+' mm')+
+    row('散热面积增益',d.finFactor.toFixed(2)+' ×')+
+    row('需散热面积',(d.Aneed*1e4).toFixed(0)+' cm²');
+
+  $('dims').innerHTML=
+    row('线圈 OD / ID',d.OD+' / '+d.ID+' mm')+
+    row('磁板 直径×厚',d.Dfer+' × '+d.tf+' mm')+
+    row('铝板 直径×厚',d.Dalu+' × '+d.ta+' mm')+
+    row('铝板材质',d.aluName)+
+    row('散热筋高度',d.finH+' mm')+
+    row('外壳 直径',d.Dhous+' mm')+
+    row('总厚度（含筋）',d.stack.toFixed(1)+' mm')+
+    row('磁板质量',d.ferMass.toFixed(2)+' kg')+
+    row('铝板质量',d.aluMass.toFixed(2)+' kg');
+
+  const bad=d.checks.filter(c=>!c.ok);
+  const vd=bad.length===0?['符合设计准则','ok']:(bad.length<=2?['基本符合 · 待优化 '+bad.length+' 项','warn']:['不符合 · 需重新设计','bad']);
+  $('compTag').textContent=vd[0];
+  $('compTag').className='tag '+vd[1];
+  $('comp').innerHTML=d.checks.map(c=>
+    `<tr><td>${c.n}<br><span style="font-size:10px;color:#6b7787">限值 ${c.lim}</span></td>`+
+    `<td>${c.v}<br><span class="tag ${c.ok?'ok':'bad'}">${c.ok?'通过':'超限'}</span></td></tr>`).join('');
+  $('compNote').textContent=(bad.length===0
+    ? '8 项校核全部通过，可进入样机试制。'
+    : '未通过：'+bad.map(c=>c.n).join('、')+'。')+
+    '限值取自 Maxwell 2D 标定与工程经验（间隙/偏移参考 IEC 61980-1、SAE J2954 建议值），属设计自检，不等同第三方认证。';
+
+  const warn=[];
+  if(d.mu<500) warn.push(`磁板拼缝过大：等效 μr 仅 ${d.mu.toFixed(0)}（目标 ≥800）。把缝压到 0.1 mm 以内、拼块加大或错缝。`);
+  if(d.satMargin<1.5) warn.push(`磁板接近饱和：气隙磁密 ${d.Bmax.toFixed(0)} mT，饱和裕度仅 ${d.satMargin.toFixed(1)}×，建议加厚磁板或增大面积。`);
+  if(d.dTfin>60) warn.push(`温升偏高：加散热筋后仍 ${d.dTfin.toFixed(0)} ℃，建议铝板贴底盘导热或加风冷。`);
+  if(d.Im>22) warn.push(`线圈电流 ${d.Im.toFixed(1)} A 偏大，建议增加匝数或加大线圈。`);
+  if(d.misDecay>0.25) warn.push(`水平偏心 ${d.delta.toFixed(0)} mm（${(d.delta/d.OD*100).toFixed(0)}% OD）使耦合衰减 ${(d.misDecay*100).toFixed(0)}%，效率与传输功率都会掉。工程上一般要求偏移 ≤15–20% OD，必要时加对中导向或改用 DD/双 D 抗偏移结构。`);
+  $('warnbox').style.display=warn.length?'block':'none';
+  $('warnbox').innerHTML=warn.join('<br>');
+
+  const mg=Math.round((d.Dfer-d.OD)/2);
+  $('notesBody').innerHTML=
+    `<b>磁板材料</b>${d.ferName} · μr ${d.mu0} · Bs ${d.bs} T；${d.ferTip}。${d.nTile}×${d.nTile} 拼块后等效 μr ${d.mu.toFixed(0)}。`+
+    `<b>铝板材质</b>${d.aluName} · 电导率 ${(d.aluSig/1e7).toFixed(2)}×10⁷ S/m（影响涡流屏蔽与散热）。`+
+    `<b>走线</b>内圈回线走线圈<b style="display:inline">上表面</b>（远离磁板一侧），加 0.2 mm 聚酰亚胺绝缘。不要夹在磁板和线圈之间——若开 4 mm 径向通槽，等效 μr 会掉到约 40，槽下铝板形成漏磁热点。`+
+    `<b>绝缘层</b>线圈→磁板 0.2 mm PI 膜；磁板→铝板 0.5 mm 导热胶，必须填满气隙（空气是最大热阻）；外壳顶面 3 mm 非金属。`+
+    `<b>拼接磁板</b>${d.nTile}×${d.nTile} 块 ${d.tile}×${d.tile}×${d.tf} mm ${d.ferName}；拼缝 ≤0.10 mm、错缝布置、薄胶粘接后磨平。当前等效 μr ${d.mu.toFixed(0)}。`+
+    `<b>磁板尺寸</b>D ${d.Dfer} mm = 线圈 OD ${d.OD} + 每边 ${mg} mm 裕量；磁板必须完全盖住铝板边缘。`+
+    `<b>铝板尺寸</b>D ${d.Dalu} mm ≤ 磁板 D，<b style="display:inline">不得外露悬边</b>；厚度 ${d.ta} mm 只需覆盖集肤深度（85 kHz 约 0.28 mm）。`+
+    `<b>散热筋</b>${d.finH>0?`铝板背面 ${d.nFin} 条直筋、高 ${d.finH} mm、间距约 18 mm、厚 2 mm；有效散热面积 ${d.Aeff.toFixed(3)} m²（增益 ${d.finFactor.toFixed(2)}×），温升由 ${d.dT.toFixed(0)} K 降到 ${d.dTfin.toFixed(0)} K。环境 ${d.amb} °C 时铝板表面约 ${d.aluT.toFixed(0)} °C、筋表面约 ${d.finT.toFixed(0)} °C、线圈约 ${d.coilT.toFixed(0)} °C；筋高超过约 25 mm 后边际收益变小，优先增加筋数/风速。`:'未设置散热筋（高度 0），仅靠铝板裸面自然对流散热。'}`+
+    `<b>充电效率</b>按 P/(P+2×单端损耗) 估算（单端含铜损、铝板涡流与磁板铁损 Steinmetz 估算）：线圈-线圈 ${d.etaCoil.toFixed(1)}%，再乘逆变/整流约 95% 得系统效率 ${d.etaSys.toFixed(1)}%。样机受线束与开关损耗影响通常再低 0.5–1.5 个百分点。`+
+    `<b>Z 轴间隙</b>${d.gap} mm 为两线圈面之间的距离（含两侧外壳厚度），不是铁氧体之间的距离。间隙每翻倍 k 约掉 1/3，能小则小。`+
+    `<b>X / Y 偏心</b>水平偏心按两圆环互感的精确公式逐匝求和：δ ${d.delta.toFixed(1)} mm 时 k 衰减 ${(d.misDecay*100).toFixed(0)}%。经验边界：偏移 ≤15% OD 影响 <10%；>25% OD 急剧恶化。AGV 停位重复精度建议按 ±20 mm 校核，必要时加 V 型导向或锥形对中。`+
+    `<b>外壳</b>D ${d.Dhous} mm；线圈面必须非金属（G10/FR4 或 PA66-GF30），侧壁不得形成闭合金属环（否则等于短路环）。`;
+
+  $('chipShape').textContent={circ:'圆形',sq:'方形',dd:'DD'}[d.shape];
+  $('chipGap').textContent=`Z 间隙 ${d.gap} mm`+(d.delta>0.5?` · 偏心 ${d.delta.toFixed(0)} mm`:'');
+  $('dimline').textContent=`  Ø${d.OD} · 单板 ${d.stack.toFixed(1)} mm · 总高 ${(2*d.stack+d.gap).toFixed(1)} mm · ${d.N} 匝 · ${(d.freq/1000).toFixed(0)} kHz`;
+
+  drawXsec(d);
+  build3D(d);
+  draw3D();
+  state.last=d;
+  state.fem=null;
+  $('fem').innerHTML='';
+}
+
+/* 输入事件 */
+[['pw','pwv',v=>v+' W'],['gap','gapv',v=>v+' mm'],['dx','dxv',v=>v+' mm'],
+ ['dy','dyv',v=>v+' mm'],['tf','tfv',v=>v+' mm'],
+ ['ta','tav',v=>v+' mm'],['fh','fhv',v=>v+' mm'],['amb','ambv',v=>v+' °C'],['ts','tsv',v=>v+' mm'],['nt','nv',v=>v]]
+.forEach(([id,lab,f])=>{
+  $(id).addEventListener('input',e=>{ $(lab).textContent=f(e.target.value); update(); });
+});
+$('gt').addEventListener('input',e=>{ $('gv').textContent=(+e.target.value).toFixed(2)+' mm'; update(); });
+$('freq').addEventListener('change',update);
+$('app').addEventListener('change',e=>{
+  const g=APP_GAP[e.target.value];
+  $('gap').value=g; $('gapv').textContent=g+' mm'; update();
+});
+$('autoN').addEventListener('change',e=>{
+  $('nt').disabled=e.target.checked;
+  $('nwrap').style.opacity=e.target.checked?0.4:1;
+  update();
+});
+document.querySelectorAll('#shape button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('#shape button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); state.shape=b.dataset.v; update();
+  });
+});
+
+/* 3D 交互 */
+S3.cv=$('c3d'); S3.ctx=S3.cv.getContext('2d');
+let raf=false;
+function requestDraw(){
+  if(raf) return; raf=true;
+  requestAnimationFrame(()=>{ raf=false; draw3D(); });
+}
+/* 视角预设：立体（透视）/ 正视、侧视（正交投影，纯二维） */
+const VIEWS={iso:{yaw:-0.68,pitch:0.34,ortho:false},front:{yaw:0,pitch:0,ortho:true},side:{yaw:Math.PI/2,pitch:0,ortho:true}};
+function setView(k){
+  const v=VIEWS[k]; if(!v) return;
+  S3.yaw=v.yaw; S3.pitch=v.pitch; S3.ortho=!!v.ortho;
+  [...$('viewset').children].forEach(b=>b.classList.toggle('on',b.dataset.v===k));
+  requestDraw();
+}
+$('viewset').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(b) setView(b.dataset.v);
+});
+(()=>{
+  const cv=S3.cv;
+  cv.addEventListener('pointerdown',e=>{S3.drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{
+    if(!S3.drag)return;
+    S3.yaw+=(e.clientX-S3.drag.x)*0.008;
+    S3.pitch=clamp(S3.pitch-(e.clientY-S3.drag.y)*0.006,-0.2,1.45);
+    S3.drag={x:e.clientX,y:e.clientY};
+    [...$('viewset').children].forEach(b=>b.classList.remove('on'));
+    requestDraw();
+  });
+  cv.addEventListener('pointerup',()=>S3.drag=null);
+  cv.addEventListener('pointercancel',()=>S3.drag=null);
+  cv.addEventListener('wheel',e=>{
+    e.preventDefault();
+    S3.zoom=clamp(S3.zoom*(e.deltaY>0?0.92:1.08),0.35,4);
+    requestDraw();
+  },{passive:false});
+})();
+
+window.addEventListener('resize',()=>{ fitCanvas(); draw3D(); });
+
+$('ferMat').addEventListener('change',update);
+$('aluMat').addEventListener('change',update);
+$('expl').addEventListener('change',e=>{
+  S3.ex=e.target.checked?3:0;
+  if(state.last){build3D(state.last);draw3D();}
+});
+
+/* ---- ANSYS 桥接 ---- */
+const API='http://localhost:8765';
+/* ---- 本机 AEDT 自动探测 ---- */
+async function detectAedt(){
+  const tag=$('aedtTag'), st=$('astat');
+  const setBtn=(label,off)=>{ ['solveBtn','solveBtn2'].forEach(id=>{ const b=$(id); b.disabled=off; b.textContent=label; }); };
+  const ctrl=new AbortController(), tm=setTimeout(()=>ctrl.abort(),2500);
+  try{
+    const j=await (await fetch(API+'/detect',{signal:ctrl.signal})).json();
+    clearTimeout(tm);
+    if(j.found){
+      tag.className='tag ok'; tag.textContent='● AEDT '+j.version+' · '+j.drive+' 盘';
+      setBtn('▶ 连接 ANSYS 求解',false);
+      st.className='stat on'; st.textContent='已就绪 · '+j.exe;
+    }else{
+      tag.className='tag warn'; tag.textContent='○ 未检测到 AEDT';
+      setBtn('未检测到 ANSYS · 使用解析模型',true);
+      st.className='stat'; st.textContent='本机未安装 AEDT '+j.version+'，结果由解析模型给出';
+    }
+  }catch(e){
+    clearTimeout(tm);
+    tag.className='tag bad'; tag.textContent='○ 桥接未启动';
+    setBtn('桥接未运行 · 使用解析模型',true);
+    st.className='stat err'; st.textContent='未连上 wpt_bridge.py，当前仅显示解析结果';
+  }
+}
+detectAedt();
+$('solveBtn').addEventListener('click',startSolve);
+$('solveBtn2').addEventListener('click',startSolve);
+async function startSolve(){
+  const d=state.last, st=$('astat');
+  if(!d) return;
+  const t0=Date.now(), ts=Date.now();
+  const hm=t=>new Date(t).toLocaleTimeString('zh-CN',{hour12:false});
+  const startStr=hm(ts);
+  st.className='stat busy';
+  const tick=()=>{ st.textContent='● 求解中… 开始 '+startStr+' · 已用 '+Math.round((Date.now()-t0)/1000)+' s（首次 1–2 分钟，之后约 10–30 s）'; };
+  tick();
+  const timer=setInterval(tick,1000);
+  $('solveBtn').disabled=true; $('solveBtn2').disabled=true;
+  try{
+    const r=await fetch(API+'/solve',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({OD:d.OD,ID:d.ID,N:d.N,gap:d.gap,freq:d.freq,tf:d.tf,ta:d.ta,
+        Dfer:d.Dfer,Dalu:d.Dalu,ferMu:d.mu0,ferName:d.ferName,shape:d.shape,
+        tile:d.tile,gapTile:d.gapTile,coilH:d.coilH,aluSig:d.aluSig,
+        dx:d.dx,dy:d.dy,delta:d.delta,
+        aluName:d.aluName,L0:d.L,M0:d.M,k0:d.k})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    if(j.error) throw new Error(j.error);
+    clearInterval(timer);
+    const fin=Date.now();
+    j.times={start:startStr,end:hm(fin),sec:+((fin-t0)/1000).toFixed(1)};
+    st.className=j.note?'stat busy':'stat on';
+    st.textContent='✔ 求解完成 · 开始 '+j.times.start+' → 完成 '+j.times.end+' · 用时 '+j.times.sec+' s · '+j.case+(j.note?' · '+j.note:'');
+    state.fem=j;
+    const e=(a,b)=>'('+(100*(a-b)/b>=0?'+':'')+(100*(a-b)/b).toFixed(1)+'%)';
+    $('fem').innerHTML=
+      row('FEM 自感 L',j.L.toFixed(2)+' µH')+
+      row('计算值',d.L.toFixed(2)+' µH '+e(j.L,d.L))+
+      row('FEM 互感 M',j.M.toFixed(2)+' µH')+
+      row('计算值',d.M.toFixed(2)+' µH '+e(j.M,d.M))+
+      row('FEM 耦合 k',j.k.toFixed(3))+
+      row('计算值',d.k.toFixed(3)+' '+e(j.k,d.k))+
+      row('FEM 铝板损耗',j.alu_loss.toFixed(1)+' W')+
+      row('FEM 磁板 μr',(j.params&&j.params.ferMu||0).toFixed(0)+(j.params&&j.params.tiled?' · 分块 '+j.params.tiled:'（整块）'))+
+      row('FEM 求解时间',j.times.start+' → '+j.times.end+'（'+j.times.sec+' s）');
+  }catch(err){
+    clearInterval(timer);
+    st.className='stat err';
+    st.textContent='✖ 求解失败 · 开始 '+startStr+' → 失败 '+hm(Date.now())+' · 用时 '+((Date.now()-t0)/1000).toFixed(1)+' s · '+err.message+'（请先在本目录运行 wpt_bridge.py）';
+  }finally{ clearInterval(timer); $('solveBtn').disabled=false; $('solveBtn2').disabled=false; }
+}
+
+$('export').addEventListener('click',()=>{
+  const d=state.last, blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`wpt-${d.P}W-${d.shape}-${d.OD}mm.json`;
+  a.click();
+});
+
+/* ---- 工程保存 / 读取 ---- */
+const LS='wpt.projects.v1';
+const lsAll=()=>{try{return JSON.parse(localStorage.getItem(LS)||'{}');}catch(e){return{};}};
+function refreshProjects(){
+  const all=lsAll(), sel=$('projList');
+  sel.innerHTML='<option value="">— 已保存工程 —</option>'+
+    Object.keys(all).sort().map(k=>`<option value="${k}">${k}</option>`).join('');
+}
+function applyInput(inp){
+  $('pw').value=inp.P; $('gap').value=inp.gap;
+  $('dx').value=inp.dx||0; $('dy').value=inp.dy||0;
+  $('freq').value=inp.freq; $('tf').value=inp.tf; $('ta').value=inp.ta;
+  $('fh').value=inp.finH==null?15:inp.finH;
+  $('amb').value=inp.amb==null?25:inp.amb;
+  $('ts').value=inp.tile; $('gt').value=inp.gapTile;
+  if(inp.app) $('app').value=inp.app;
+  $('autoN').checked=!!inp.autoN; $('nt').value=inp.N;
+  $('ferMat').value=inp.ferMat; $('aluMat').value=inp.aluMat;
+  state.shape=inp.shape||'circ';
+  [...$('shape').children].forEach(b=>b.classList.toggle('on',b.dataset.v===state.shape));
+  update();
+}
+$('saveBtn').addEventListener('click',()=>{
+  const name=($('projName').value||'').trim()||'未命名工程';
+  const all=lsAll();
+  all[name]={name,savedAt:new Date().toISOString(),input:readInputs()};
+  try{
+    localStorage.setItem(LS,JSON.stringify(all));
+    refreshProjects(); $('projList').value=name;
+    const b=$('saveBtn'), t=b.textContent;
+    b.textContent='已保存 ✓'; setTimeout(()=>b.textContent=t,1200);
+  }catch(e){ alert('保存失败：'+e.message); }
+});
+$('projList').addEventListener('change',e=>{
+  const all=lsAll(), p=all[e.target.value];
+  if(!p) return;
+  $('projName').value=p.name;
+  applyInput(p.input);
+});
+$('delBtn').addEventListener('click',()=>{
+  const k=$('projList').value;
+  if(!k){ alert('请先在下拉框选择要删除的工程'); return; }
+  if(!confirm('确定删除工程「'+k+'」？此操作不可恢复。')) return;
+  const all=lsAll(); delete all[k];
+  localStorage.setItem(LS,JSON.stringify(all));
+  refreshProjects();
+});
+refreshProjects();
+
+/* ---- 导出 PDF 设计报告 ---- */
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function reportHTML(d,fem){
+  const kv=(a,b)=>`<tr><td>${a}</td><td>${b}</td></tr>`;
+  const now=new Date().toLocaleString('zh-CN');
+  const name=($('projName').value||'').trim()||'未命名工程';
+  const img=S3.cv.toDataURL('image/png');
+  const svg=$('xsec').outerHTML;
+  const bad=d.checks.filter(c=>!c.ok);
+  const verdict=bad.length===0?['符合设计准则','ok']:(bad.length<=2?['基本符合 · 待优化 '+bad.length+' 项','warn']:['不符合设计准则','bad']);
+  const dev=(f,a)=>(f==null||!a)?'—':((100*(f-a)/a>=0?'+':'')+(100*(f-a)/a).toFixed(1)+'%');
+  const kpi=(v,u,l)=>`<div class="kpi"><div class="kv">${v}<span>${u}</span></div><div class="kl">${l}</div></div>`;
+  const p4=(l1,v1,l2,v2)=>`<tr><td class="lb">${l1}</td><td>${v1}</td><td class="lb">${l2}</td><td>${v2}</td></tr>`;
+  const compRows=d.checks.map(c=>`<tr><td>${esc(c.n)}</td><td class="lim">${esc(c.lim)}</td><td class="mono">${esc(c.v)}</td><td><span class="chip ${c.ok?'pass':'fail'}">${c.ok?'通过':'超限'}</span></td></tr>`).join('');
+  const femTable=fem?`
+  <table class="cmp"><thead><tr><th>指标</th><th>解析模型</th><th>ANSYS Maxwell 2D</th><th>偏差</th></tr></thead><tbody>
+  <tr><td>自感 L</td><td>${d.L.toFixed(2)} µH</td><td>${fem.L.toFixed(2)} µH</td><td>${dev(fem.L,d.L)}</td></tr>
+  <tr><td>互感 M</td><td>${d.M.toFixed(2)} µH</td><td>${fem.M.toFixed(2)} µH</td><td>${dev(fem.M,d.M)}</td></tr>
+  <tr><td>耦合系数 k</td><td>${d.k.toFixed(3)}</td><td>${fem.k.toFixed(3)}</td><td>${dev(fem.k,d.k)}</td></tr>
+  <tr><td>铝板涡流损耗</td><td>${d.Peddy.toFixed(1)} W</td><td>${fem.alu_loss==null?'—':fem.alu_loss.toFixed(1)+' W'}</td><td>${dev(fem.alu_loss,d.Peddy)}</td></tr>
+  </tbody></table>
+  <p class="note">工况：${esc(fem.case)}；求解耗时 ${fem.seconds} s。${fem.note?esc(fem.note):''}</p>
+  <p class="note">口径：${fem.params&&fem.params.tiled?`FEM 按 ${d.tile} mm 拼块 / ${d.gapTile} mm 拼缝径向切分磁板（每板 ${fem.params.tiled} 块）建模，轴对称仅能表达径向缝；`:'FEM 按整块磁板建模（未含拼缝）；'}解析值按等效 μr ${d.mu.toFixed(0)} 折算，属偏保守的设计估值。</p>`
+  : `<p class="note">本次报告未执行 ANSYS 校核。可在设计器中点击「连接 ANSYS 求解」后重新导出报告。</p>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>${esc(name)} · 大功率无线充电线圈设计报告</title>
+<style>
+@page{size:A4;margin:15mm 16mm}
+*{box-sizing:border-box}
+body{font:11.6px/1.65 "Microsoft YaHei","PingFang SC",sans-serif;color:#1c2430;margin:0;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+.hdr{border-bottom:3px solid #0f6b4f;padding-bottom:10px;margin-bottom:6px}
+.hdr .tag{font-size:8.5px;letter-spacing:2.2px;color:#0f6b4f;font-weight:700}
+h1{font-size:20px;margin:6px 0 2px;letter-spacing:.4px;line-height:1.3}
+.sub{font-size:11.5px;color:#425061}
+.meta{margin-top:9px;font-size:9.5px;color:#6b7787;display:flex;gap:20px}
+h2{font-size:12px;margin:16px 0 7px;padding:5px 0 5px 9px;border-left:3px solid #0f6b4f;
+  background:#f2f7f5;letter-spacing:.6px;page-break-after:avoid}
+h2 span{color:#0f6b4f;font-weight:700;margin-right:7px;font-family:Consolas,monospace}
+table{width:100%;border-collapse:collapse;font-size:10.6px;page-break-inside:avoid}
+td{padding:4px 7px;border-bottom:1px solid #e6eaee;vertical-align:middle}
+th{background:#edf3f0;text-align:left;font-weight:600;color:#33504a;padding:5px 7px;border-bottom:1px solid #d6e0db;font-size:10.2px}
+.pairs td.lb{color:#5b6877;width:15%;background:#fafbfc}
+.pairs td:nth-child(2),.pairs td:nth-child(4){font-family:Consolas,monospace;width:35%}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:8px 0 9px}
+.kpi{border:1px solid #dde3e8;border-radius:5px;padding:8px 9px;background:#fbfcfd}
+.kpi .kv{font:700 16px/1.2 Consolas,monospace;color:#0f2b21}
+.kpi .kv span{font-size:9px;color:#7a8696;font-weight:400;margin-left:2px}
+.kpi .kl{font-size:9px;color:#7a8696;margin-top:2px}
+.verdict{border-radius:5px;padding:8px 11px;font-size:10.8px;margin:2px 0 8px}
+.verdict.ok{background:#eef8f3;border:1px solid #bfe3d3;color:#0f5c44}
+.verdict.warn{background:#fff8ea;border:1px solid #f0dcb4;color:#8a5a00}
+.verdict.bad{background:#fdeeed;border:1px solid #f2c4c0;color:#9c2f27}
+ul.sum{margin:2px 0 0 15px;padding:0;font-size:10.6px}
+ul.sum li{margin:2.5px 0}
+.lim{color:#7a8696;font-size:9.8px}
+.mono{font-family:Consolas,monospace}
+.chip{display:inline-block;padding:1px 8px;border-radius:9px;font-size:9.2px}
+.chip.pass{background:#e4f5ec;color:#0f6b4f}
+.chip.fail{background:#fdeaea;color:#b0352c}
+.cmp td:not(:first-child){text-align:right;font-family:Consolas,monospace}
+.note{font-size:9.6px;color:#6b7787;margin:5px 0 0;line-height:1.6}
+.fig{border:1px solid #e2e7ec;border-radius:5px;padding:6px;margin-top:6px;background:#fff;page-break-inside:avoid}
+.fig img,.fig svg{width:100%;display:block}
+.cap{font-size:9.2px;color:#7a8696;text-align:center;margin-top:3px}
+.notes{font-size:10.2px;line-height:1.7;color:#2c3642}
+.notes b{display:block;margin-top:6px;color:#0f2b21}
+ul.limits{margin:4px 0 0 15px;padding:0;font-size:9.8px;color:#5b6877;line-height:1.65}
+.sign{margin-top:14px;page-break-inside:avoid}
+.sign td,.sign th{border:1px solid #d6dde2;height:26px;font-size:10px}
+.sign th{background:#f6f8f9;width:9%;color:#5b6877;font-weight:500}
+.foot{margin-top:12px;color:#8a94a0;font-size:9px;border-top:1px solid #e2e7ec;padding-top:6px}
+</style></head><body>
+
+<div class="hdr">
+  <div class="tag">WPT PAD DESIGNER · DESIGN REPORT</div>
+  <h1>${esc(name)}</h1>
+  <div class="sub">大功率无线充电线圈 · 磁板 · 铝板 设计计算报告</div>
+  <div class="meta"><span>生成时间 ${now}</span><span>版本 v0.1</span><span>单位 mm / µH / W</span></div>
+</div>
+
+<h2><span>01</span>执行摘要</h2>
+<div class="kpis">
+  ${kpi(d.P,'W','传输功率')}
+  ${kpi(d.etaCoil.toFixed(1),'%','充电效率（线圈-线圈）')}
+  ${kpi(d.k.toFixed(3),'','耦合系数 k')}
+  ${kpi(d.dTfin.toFixed(0),'℃','加筋后温升')}
+  ${kpi(d.stack.toFixed(1),'mm','单板总厚')}
+</div>
+<div class="verdict ${verdict[1]}"><b>合规结论：${verdict[0]}。</b>共 8 项校核，通过 ${d.checks.length-bad.length} 项${bad.length?'，未通过：'+bad.map(c=>esc(c.n)).join('、'):''}。判定为工程自检，不等同第三方认证。</div>
+<ul class="sum">
+  <li>在 ${d.P} W、${d.gap} mm 间隙、${(d.freq/1000).toFixed(0)} kHz 下，线圈-线圈效率 <b>${d.etaCoil.toFixed(1)}%</b>，系统效率 ${d.etaSys.toFixed(1)}%，两端损耗合计 ${d.Ploss.toFixed(0)} W。</li>
+  <li>磁板 ${esc(d.ferName)} 拼块后等效 μr ${d.mu.toFixed(0)}；气隙磁密 ${d.Bmax.toFixed(1)} mT，饱和裕度 ${d.satMargin.toFixed(1)}×。</li>
+  <li>铝板 ${esc(d.aluName)} 厚 ${d.ta} mm + 散热筋 ${d.finH} mm；${d.amb} °C 环境下铝板表面 ${d.aluT.toFixed(0)} °C、筋表面 ${d.finT.toFixed(0)} °C、线圈约 ${d.coilT.toFixed(0)} °C。</li>
+  <li>${fem?`ANSYS Maxwell 2D 复核完成：L ${fem.L.toFixed(2)} µH、M ${fem.M.toFixed(2)} µH、k ${fem.k.toFixed(3)}（与解析偏差见第 06 节）。`:'本次未执行 ANSYS 校核，建议定型前补充。'}</li>
+</ul>
+
+<h2><span>02</span>设计输入与线圈参数</h2>
+<table class="pairs">
+${p4('传输功率',d.P+' W','应用场景',esc(APP_NAME[d.app]||'—'))}
+${p4('线圈结构',{circ:'圆形',sq:'方形',dd:'DD'}[d.shape],'工作频率',(d.freq/1000).toFixed(0)+' kHz')}
+${p4('Z 轴间隙',d.gap+' mm','X / Y 偏心',d.dx+' / '+d.dy+' mm')}
+${p4('合偏心 δ',d.delta.toFixed(1)+' mm','偏移 k 衰减',(d.misDecay*100).toFixed(0)+' %')}
+${p4('外径 / 内径',d.OD+' / '+d.ID+' mm','匝数',d.N+' 匝')}
+${p4('利兹线（市售标准）',d.nStr+' × 0.1 mm','等效截面',d.Acu.toFixed(2)+' mm²（理论需 '+d.nStrNeed+' 股）')}
+${p4('线长',d.lenWire.toFixed(2)+' m','直流电阻',d.Rcu.toFixed(1)+' mΩ')}
+${p4('线圈电流（RMS）',d.Im.toFixed(1)+' A','端电压',d.Vcoil.toFixed(0)+' V')}
+${p4('自感 L',d.L.toFixed(2)+' µH','互感 M',d.M.toFixed(2)+' µH')}
+${p4('耦合系数 k',d.k.toFixed(4),'串联补偿电容',d.Cap.toFixed(1)+' nF')}
+</table>
+
+<h2><span>03</span>磁板、铝板与热设计</h2>
+<table class="pairs">
+${p4('磁板材料',esc(d.ferName)+'（μr '+d.mu0+'）','磁板厚度',d.tf+' mm')}
+${p4('磁板拼块',d.nTile+' × '+d.nTile+' 块 · '+d.tile+' mm','拼缝宽度',d.gapTile+' mm')}
+${p4('拼后等效 μr',d.mu.toFixed(0),'磁板直径',d.Dfer+' mm')}
+${p4('铝板材质',esc(d.aluName),'铝板厚度 / 直径',d.ta+' / '+d.Dalu+' mm')}
+${p4('散热筋（直筋）',d.nFin+' 条 × '+d.finH+' mm','有效散热面积',d.Aeff.toFixed(3)+' m²（'+d.finFactor.toFixed(2)+'×）')}
+${p4('环境温度',d.amb+' °C','裸板温升 / 加筋温升',d.dT.toFixed(0)+' / '+d.dTfin.toFixed(0)+' ℃')}
+${p4('铝板表面温度',d.aluT.toFixed(0)+' °C','散热筋表面温度',d.finT.toFixed(0)+' °C')}
+${p4('线圈估算温度',d.coilT.toFixed(0)+' °C','外壳直径',d.Dhous+' mm')}
+</table>
+
+<h2><span>04</span>损耗、效率与温升</h2>
+<table class="pairs">
+${p4('铜损（单端）',d.Pcu.toFixed(1)+' W','铝板涡流（单端）',d.Peddy.toFixed(1)+' W')}
+${p4('磁板铁损（单端，估算）',d.Pcore.toFixed(1)+' W','单端损耗合计',d.Pplate.toFixed(1)+' W')}
+${p4('两端总损耗',d.Ploss.toFixed(0)+' W','充电效率（线圈-线圈）',d.etaCoil.toFixed(1)+' %')}
+${p4('系统效率（含变换器）',d.etaSys.toFixed(1)+' %','需散热面积（40 K）',(d.Aneed*1e4).toFixed(0)+' cm²')}
+${p4('总厚度（含筋）',d.stack.toFixed(1)+' mm','','')}
+</table>
+<p class="note">效率口径：η = P / (P + 2×单端损耗)，单端损耗含铜损、铝板涡流与磁板铁损（Steinmetz 估算）；系统效率再乘逆变/整流经验系数 0.95。实际样机受线束、开关损耗影响，通常再低 0.5–1.5 个百分点。</p>
+
+<h2><span>05</span>设计合规性</h2>
+<table><thead><tr><th>校核项</th><th>限值</th><th>实测</th><th>判定</th></tr></thead>
+<tbody>${compRows}</tbody></table>
+<p class="note">判定依据：Maxwell 2D 轴对称标定 + 工程经验限值（间隙/偏移参考 IEC 61980-1、SAE J2954 建议值），属设计自检，不等同第三方认证。<br>综合结论：<b>${verdict[0]}</b>。</p>
+
+<h2><span>06</span>ANSYS Maxwell 校核</h2>
+${femTable}
+${fem&&fem.times?`<p class="note">求解时间：${fem.times.start} → ${fem.times.end}，用时 ${fem.times.sec} s。</p>`:''}
+
+<h2><span>07</span>模型图示</h2>
+<div class="fig"><img src="${img}" alt="三维模型"><div class="cap">图 1　三维叠层模型（铝板 / 磁板 / 线圈 / 外壳，含气隙与散热筋）</div></div>
+<div class="fig">${svg}<div class="cap">图 2　截面分层与总厚度（俯视投影宽 ${d.Dhous} mm · 总高 ${(2*d.stack+d.gap).toFixed(1)} mm）</div></div>
+<table class="pairs" style="margin-top:6px">
+${p4('单板总厚',d.stack.toFixed(1)+' mm','总高（含气隙）',(2*d.stack+d.gap).toFixed(1)+' mm')}
+${p4('磁板质量',d.ferMass.toFixed(2)+' kg','铝板质量',d.aluMass.toFixed(2)+' kg')}
+</table>
+
+<h2><span>08</span>设计说明与局限</h2>
+<div class="notes">${$('notesBody').innerHTML}</div>
+<ul class="limits">
+  <li>磁场基准为 Maxwell 2D 轴对称涡流场标定（D250 / 12 匝 / 30 mm → L 66.3 µH、M 44.8 µH、k 0.676），其余功率与尺寸按解析模型外推。</li>
+  <li>偏心衰减按两圆环互感精确公式逐匝求和；未考虑接收端倾斜与三维端部效应。</li>
+  <li>温升为自然对流稳态估算（h = 10 W/m²K、筋效率 0.85），未含强制风冷、辐射与瞬态。</li>
+  <li>合规校核为设计自检，参考 IEC 61980-1 / SAE J2954 建议值，不等同第三方认证。</li>
+</ul>
+
+<div class="sign"><table>
+<tr><th>编制</th><td></td><th>审核</th><td></td><th>批准</th><td></td><th>日期</th><td></td></tr>
+</table></div>
+
+<div class="foot">本报告由 WPT Pad Designer 自动生成 · ${now} · 工程定型前请以 ANSYS Maxwell 三维仿真与样机实测为准。</div>
+</body></html>`;
+}
+$('pdfBtn').addEventListener('click',()=>{
+  const d=state.last;
+  if(!d){ alert('请先设置参数'); return; }
+  $('rpFrame').srcdoc=reportHTML(d,state.fem);
+  $('reportWrap').style.display='flex';
+});
+$('rpClose').addEventListener('click',()=>{
+  $('reportWrap').style.display='none';
+  $('rpFrame').srcdoc='';
+});
+$('rpPrint').addEventListener('click',()=>{
+  try{ const w=$('rpFrame').contentWindow; w.focus(); w.print(); }catch(e){ alert('打印失败：'+e.message); }
+});
+
+/* ---------- 参数扫描对比 ---------- */
+const CMPV={
+  gap:{n:'Z 轴间隙',u:'mm',a:10,b:80,s:5,set:(o,v)=>({...o,gap:v})},
+  delta:{n:'水平偏心 δ',u:'mm',a:0,b:80,s:5,set:(o,v)=>({...o,dx:v,dy:0})},
+  P:{n:'传输功率',u:'W',a:500,b:10000,s:500,set:(o,v)=>({...o,P:v})},
+  freq:{n:'工作频率',u:'kHz',a:20,b:140,s:10,set:(o,v)=>({...o,freq:v*1000})}
+};
+function drawCmp(pts,cfg){
+  const cv=$('cmpChart'), dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||700, h=300;
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  const c=cv.getContext('2d'); c.setTransform(dpr,0,0,dpr,0,0); c.clearRect(0,0,w,h);
+  const L=46,R=12,T=8,G=16,PH=(h-T-3*G-12)/3,PW=w-L-R;
+  const series=[
+    {k:'k',col:'#19e08a',lab:'耦合系数 k',dec:2,fix:[0,1]},
+    {k:'eta',col:'#56a8ff',lab:'充电效率 %',dec:0},
+    {k:'T',col:'#f5b93b',lab:'铝板表面温度 ℃',dec:0}
+  ];
+  series.forEach((s,si)=>{
+    const top=T+si*(PH+G);
+    let mn,mx;
+    if(s.fix){ mn=s.fix[0]; mx=s.fix[1]; }
+    else{
+      mn=Math.min(...pts.map(p=>p[s.k])); mx=Math.max(...pts.map(p=>p[s.k]));
+      const pad=Math.max((mx-mn)*0.18,1); mn-=pad; mx+=pad;
+    }
+    c.strokeStyle='#28313b'; c.lineWidth=1; c.font='10px Consolas,monospace'; c.fillStyle='#7a8696';
+    for(let i=0;i<=4;i++){
+      const y=top+PH*i/4;
+      c.beginPath(); c.moveTo(L,y); c.lineTo(L+PW,y); c.stroke();
+      c.textAlign='right'; c.fillText((mx-(mx-mn)*i/4).toFixed(s.dec),L-6,y+3);
+    }
+    c.textAlign='left'; c.font='11px sans-serif'; c.fillStyle=s.col; c.fillText(s.lab,L+2,top-2);
+    c.fillStyle='#7a8696'; c.textAlign='center'; c.font='10px Consolas';
+    pts.forEach((p,i)=>{ if(i%2===0) c.fillText(p.v,L+PW*i/(pts.length-1),top+PH+12); });
+    c.strokeStyle=s.col; c.lineWidth=2; c.beginPath();
+    pts.forEach((p,i)=>{
+      const px=L+PW*i/(pts.length-1), py=top+PH-(p[s.k]-mn)/(mx-mn)*PH;
+      i?c.lineTo(px,py):c.moveTo(px,py);
+    });
+    c.stroke();
+    c.fillStyle=s.col;
+    pts.forEach((p,i)=>{
+      const px=L+PW*i/(pts.length-1), py=top+PH-(p[s.k]-mn)/(mx-mn)*PH;
+      c.beginPath(); c.arc(px,py,2.4,0,Math.PI*2); c.fill();
+    });
+  });
+}
+function runCmp(){
+  const cfg=CMPV[$('cmpVar').value], base=readInputs(), pts=[];
+  for(let v=cfg.a; v<=cfg.b+1e-9; v+=cfg.s){
+    const d=compute(cfg.set(base,v));
+    pts.push({v,k:d.k,eta:d.etaCoil,T:d.aluT});
+  }
+  drawCmp(pts,cfg);
+  $('cmpTable').innerHTML=
+    `<tr><td>${cfg.n}（${cfg.u}）</td><td>k</td><td>效率 %</td><td>铝板温度 ℃</td></tr>`+
+    pts.map(p=>`<tr><td>${p.v}</td><td>${p.k.toFixed(3)}</td><td>${p.eta.toFixed(1)}</td><td>${p.T.toFixed(0)}</td></tr>`).join('');
+}
+$('cmpBtn').addEventListener('click',()=>{ $('cmpModal').classList.add('on'); runCmp(); });
+$('cmpClose').addEventListener('click',()=>$('cmpModal').classList.remove('on'));
+$('cmpVar').addEventListener('change',runCmp);
+$('cmpModal').addEventListener('click',e=>{ if(e.target.id==='cmpModal') $('cmpModal').classList.remove('on'); });
+
+fitCanvas();
+update();
+
+</script>
+</body>
+</html>
