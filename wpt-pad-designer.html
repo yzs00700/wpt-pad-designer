@@ -42,6 +42,12 @@ input[type=number],input[type=text],select{width:100%;background:var(--panel2);c
 input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--brand2)}
 .val{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--brand);min-width:58px;text-align:center;
   background:rgba(25,224,138,.10);border:1px solid rgba(25,224,138,.18);border-radius:5px;padding:1px 6px}
+.valbox{display:inline-flex;align-items:center;gap:3px;float:right}
+.valbox .valedit{width:62px;background:rgba(25,224,138,.10);border:1px solid rgba(25,224,138,.28);border-radius:5px;
+  color:var(--brand);font:600 11.5px/1.4 ui-monospace,Consolas,monospace;padding:2px 4px;text-align:center;outline:none;
+  font-variant-numeric:tabular-nums}
+.valbox .valedit:focus{border-color:var(--brand);background:rgba(25,224,138,.16)}
+.valbox i{font-style:normal;font-size:10.5px;color:var(--tx2);white-space:nowrap}
 .seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px;gap:3px}
 .seg button{flex:1;background:none;border:0;color:var(--tx2);padding:6px 0;font-size:12px;border-radius:5px;cursor:pointer}
 .seg button.on{background:var(--brand);color:#062b1a;font-weight:600}
@@ -58,7 +64,14 @@ input[type=number]:focus,input[type=text]:focus,select:focus{border-color:var(--
 .viewset{position:absolute;left:14px;top:12px;display:flex;gap:3px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:3px}
 .viewset button{background:none;border:0;color:var(--tx2);font-size:11px;padding:4px 10px;border-radius:5px;cursor:pointer}
 .viewset button.on{background:var(--brand);color:#062b1a;font-weight:600}
-.xsec{border-top:1px solid var(--line);flex:1;min-height:0;padding:8px 12px;background:var(--panel)}
+.xsecbar{display:flex;align-items:center;gap:10px;padding:6px 14px 5px;border-top:1px solid var(--line);
+  background:var(--panel);font-size:11px;color:var(--tx2)}
+.xsecbar b{font-size:12px;color:var(--tx);font-weight:600;letter-spacing:.3px;display:flex;align-items:center;gap:7px}
+.xsecbar b:before{content:"";width:3px;height:12px;border-radius:2px;background:var(--danger)}
+.xsec{flex:1;min-height:0;padding:6px 10px 8px;margin:0 10px 10px;background:var(--panel);
+  border:1px solid rgba(239,91,82,.45);border-radius:7px;position:relative}
+.xsec:after{content:"1 : 1";position:absolute;right:10px;top:5px;font-size:10px;color:rgba(239,91,82,.75);
+  letter-spacing:.5px;pointer-events:none}
 #xsec{width:100%;height:100%}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:9px 11px;margin-bottom:7px}
 .card .k{font-size:11px;color:var(--tx2);letter-spacing:.3px}
@@ -237,8 +250,8 @@ details.notes summary::-webkit-details-marker{display:none}
       </div>
 
       <div class="grp">
-        <label>磁板厚度 <span id="tfv" class="val" style="float:right">5 mm</span></label>
-        <input type="range" id="tf" min="3" max="12" step="1" value="5">
+        <label>磁板厚度 <span id="tfv" class="val" style="float:right">3 mm</span></label>
+        <input type="range" id="tf" min="0.5" max="12" step="0.1" value="3">
         <label style="margin-top:12px">拼块边长 <span id="tsv" class="val" style="float:right">100 mm</span></label>
         <input type="range" id="ts" min="50" max="300" step="10" value="100">
         <label style="margin-top:12px">拼缝宽度 <span id="gv" class="val" style="float:right">0.10 mm</span></label>
@@ -266,6 +279,10 @@ details.notes summary::-webkit-details-marker{display:none}
         <input type="range" id="ta" min="1.5" max="10" step="0.5" value="3">
         <label style="margin-top:12px">散热筋高度（背面） <span id="fhv" class="val" style="float:right">15 mm</span></label>
         <input type="range" id="fh" min="0" max="40" step="1" value="15">
+        <label style="margin-top:12px">散热筋宽度 <span id="fwv" class="val" style="float:right">4 mm</span></label>
+        <input type="range" id="fw" min="1" max="10" step="0.5" value="4">
+        <label style="margin-top:12px">散热筋间距 <span id="fpv" class="val" style="float:right">12 mm</span></label>
+        <input type="range" id="fp" min="4" max="40" step="1" value="12">
         <label style="margin-top:12px">环境温度 <span id="ambv" class="val" style="float:right">25 °C</span></label>
         <input type="range" id="amb" min="-10" max="60" step="1" value="25">
       </div>
@@ -297,6 +314,7 @@ details.notes summary::-webkit-details-marker{display:none}
       <div class="chip"><span id="chipShape">圆形</span><span id="chipGap">间隙 30 mm</span></div>
       <div class="hint">上/下两块：发射板与接收板（接收板镜像，线圈相对）。Z 轴滑块调上下高度，X/Y 滑块调水平偏心</div>
     </div>
+    <div class="xsecbar"><b>二维截面图</b><span>与 3D 同参数 · 单位 mm · 红色框为本视图区域</span></div>
     <div class="xsec"><svg id="xsec" viewBox="0 0 760 190" preserveAspectRatio="xMidYMid meet"></svg></div>
   </main>
 
@@ -649,15 +667,23 @@ function compute(inp){
   const Pcore=300*Math.pow(inp.freq/1e5,1.6)*Math.pow(Math.max(Bmax,1)/200,2.4)*FM.loss*Vfer*1e3;
   const Pplate=Pcu+Peddy+Pcore;
   const finH=Math.max(0,+inp.finH||0);
+  const finW=clamp(+inp.finW||4,1,10);                     /* 筋宽 mm */
+  const finP=clamp(+inp.finPitch||12,4,40);                /* 筋间距 mm */
   const amb=inp.amb==null?25:+inp.amb;
-  const nFin=finH>0?Math.max(3,Math.round(Dhous/18)):0;
+  const nFin=finH>0?Math.max(2,Math.floor((Dhous+finP)/(finW+finP))):0;
   const Afin=finH>0?nFin*2*finH*Dhous*0.92*1e-6:0;        /* m²：筋数×两侧×筋高×筋长 */
   const Aalu=FACE_FACTOR*Math.PI/4*Math.pow(Dalu*1e-3,2);
-  const Aeff=Aalu+Afin*0.85;                               /* 筋效率 0.85 */
+  /* 筋效率 η=tanh(mL)/(mL)，m=√(2h/k·t)：筋越薄越长效率越低 */
+  const mL=finH>0?Math.sqrt(2*H_CONV/(AM.k*finW*1e-3))*finH*1e-3:0;
+  const etaFin=mL>1e-6?Math.tanh(mL)/mL:1;
+  /* 自然对流通道：间距过小时边界层重叠、气流受阻 */
+  const pitchK=finH>0?clamp(finP/10,0.55,1):1;
+  const hEff=H_CONV*pitchK;
+  const Aeff=Aalu+Afin*etaFin;
   const finFactor=Aeff/Aalu;
   const fK=Math.pow(234/AM.k,0.35);
-  const dT=Pplate/(H_CONV*Aalu)*fK;                        /* 裸板（无筋）温升 */
-  const dTfin=Pplate/(H_CONV*Aeff)*fK;                     /* 加散热筋后温升 */
+  const dT=Pplate/(hEff*Aalu)*fK;                          /* 裸板（无筋）温升 */
+  const dTfin=Pplate/(hEff*Aeff)*fK;                       /* 加散热筋后温升 */
   const aluT=amb+dTfin;                                    /* 铝板表面温度 */
   const finT=amb+dTfin*0.82;                               /* 散热筋平均表面温度 */
   const coilT=aluT+3+Pcu*0.15;                             /* 线圈估算温度 */
@@ -704,6 +730,8 @@ function compute(inp){
     {n:'磁板等效磁导率',v:mu.toFixed(0),lim:'≥ 800',ok:mu>=800},
     {n:'加散热筋后温升',v:dTfin.toFixed(0)+' ℃',lim:'≤ 55 ℃',ok:dTfin<=55},
     {n:'散热筋表面温度',v:finT.toFixed(0)+' °C',lim:'≤ 70 °C（接触安全）',ok:finT<=70},
+    {n:'散热筋间距',v:finP+' mm',lim:'≥ 6 mm（自然对流）',ok:finH<=0||finP>=6},
+    {n:'散热筋效率',v:(etaFin*100).toFixed(0)+' %',lim:'≥ 85 %',ok:finH<=0||etaFin>=0.85},
     {n:'水平偏心 δ',v:delta.toFixed(0)+' mm',lim:'≤ '+(0.15*OD).toFixed(0)+' mm（15% OD）',ok:delta<=0.15*OD},
     {n:'接收端倾斜',v:tilt.toFixed(1)+'°',lim:'≤ 2°（姿态要求）',ok:tilt<=2},
     {n:'间隙 / 外径',v:(gEff/OD*100).toFixed(1)+' %',lim:'≤ 25 %',ok:gEff/OD<=0.25},
@@ -718,7 +746,7 @@ function compute(inp){
     topo,topoC,det,RL,topoName:TOPO_NAME[topo],Req,
     ferName:FM.n,aluName:AM.n,ferTip:FM.tip,mu0:FM.mu,bs:FM.bs,aluSig:AM.sig,
     mu,F,L:L*1e6,M:M*1e6,k,Im,Vcoil,Cap,Acu,nStr,nStrNeed,Rcu:Rcu*1000,Rdc:Rdc*1000,kRac,dStr,skin,nLayer,
-    Pcu,Peddy,Pcore,Pplate,Bmax,satMargin,B200,B300,Aalu,Afin,Aeff,finFactor,finH,nFin,amb,aluT,finT,coilT,dT,dTfin,Aneed,
+    Pcu,Peddy,Pcore,Pplate,Bmax,satMargin,B200,B300,Aalu,Afin,Aeff,finFactor,finH,nFin,finW,finP,etaFin,hEff,pitchK,amb,aluT,finT,coilT,dT,dTfin,Aneed,
     Ploss,etaCoil,etaSys,checks,
     stack,ferMass,aluMass,lenWire,lenTurn,coilH,ins,tim,base,shell};
 }
@@ -872,15 +900,15 @@ function build3D(d){
     layer(l.k,y0,y1,p.ox,p.oz);
   }
 
-  /* 铝板背面散热筋：直筋，高度 finH */
+  /* 铝板背面散热筋：直筋，高度 finH、宽度 finW、间距 finP */
   if(finH>0){
-    const Rh=d.Dhous/2, nf=Math.max(3,Math.round(d.Dhous/18));
+    const Rh=d.Dhous/2, nf=Math.max(2,d.nFin), dep=Math.max(1.5,d.finW);
     for(let i=0;i<nf;i++){
-      const zc=-Rh*0.78+i*(Rh*1.56/(nf-1));
+      const zc=-((nf-1)*(d.finW+d.finP))/2+i*(d.finW+d.finP);
       const w=d.shape==='circ'?2*Math.sqrt(Math.max(0,Rh*Rh-zc*zc))*0.94:d.Dhous*0.92;
       if(w<10) continue;
-      box(0,zc,w,2.2,yb-finH,yb,shade(CLR.alu,0.9));
-      box(dx,dz+zc,w,2.2,yt,yt+finH,shade(CLR.alu,0.9));
+      box(0,zc,w,dep,yb-finH,yb,shade(CLR.alu,0.9));
+      box(dx,dz+zc,w,dep,yt,yt+finH,shade(CLR.alu,0.9));
     }
   }
 
@@ -965,7 +993,7 @@ const APP_NAME={agv:'AGV / 移动机器人',robot:'工业机器人 / 机械臂',
 function readInputs(){
   return {P:+$('pw').value,gap:+$('gap').value,freq:+$('freq').value,
     dx:+$('dx').value,dy:+$('dy').value,tilt:+$('tilt').value,app:$('app').value,
-    tf:+$('tf').value,ta:+$('ta').value,finH:+$('fh').value,amb:+$('amb').value,tile:+$('ts').value,
+    tf:+$('tf').value,ta:+$('ta').value,finH:+$('fh').value,finW:+$('fw').value,finPitch:+$('fp').value,amb:+$('amb').value,tile:+$('ts').value,
     gapTile:+$('gt').value,autoN:$('autoN').checked,N:+$('nt').value,shape:state.shape,topo:state.topo,
     ferMat:$('ferMat').value,aluMat:$('aluMat').value};
 }
@@ -1039,7 +1067,9 @@ function update(){
     row('铝板表面温度',d.aluT.toFixed(0)+' °C')+
     row('散热筋表面温度',d.finT.toFixed(0)+' °C')+
     row('线圈估算温度',d.coilT.toFixed(0)+' °C')+
-    row('散热筋 数量×高度',d.nFin+' × '+d.finH+' mm')+
+    row('散热筋 数量×高',d.nFin+' × '+d.finH+' mm')+
+    row('筋宽 / 筋间距',d.finW+' / '+d.finP+' mm')+
+    row('筋效率 / 有效 h',(d.etaFin*100).toFixed(0)+' % / '+d.hEff.toFixed(1)+' W/m²K')+
     row('散热面积增益',d.finFactor.toFixed(2)+' ×')+
     row('需散热面积',(d.Aneed*1e4).toFixed(0)+' cm²');
 
@@ -1048,7 +1078,7 @@ function update(){
     row('磁板 直径×厚',d.Dfer+' × '+d.tf+' mm')+
     row('铝板 直径×厚',d.Dalu+' × '+d.ta+' mm')+
     row('铝板材质',d.aluName)+
-    row('散热筋高度',d.finH+' mm')+
+    row('散热筋 高×宽×距',d.finH+' × '+d.finW+' × '+d.finP+' mm')+
     row('外壳 直径',d.Dhous+' mm')+
     row('总厚度（含筋）',d.stack.toFixed(1)+' mm')+
     row('磁板质量',d.ferMass.toFixed(2)+' kg')+
@@ -1073,6 +1103,7 @@ function update(){
   if(d.Im>22) warn.push(`线圈电流 ${d.Im.toFixed(1)} A 偏大，建议增加匝数或加大线圈。`);
   if(d.misDecay>0.25) warn.push(`水平偏心 ${d.delta.toFixed(0)} mm（${(d.delta/d.OD*100).toFixed(0)}% OD）使耦合衰减 ${(d.misDecay*100).toFixed(0)}%，效率与传输功率都会掉。工程上一般要求偏移 ≤15–20% OD，必要时加对中导向或改用 DD/双 D 抗偏移结构。`);
   if(d.tilt>2) warn.push(`接收端倾斜 ${d.tilt.toFixed(1)}° 超出姿态要求：等效间隙由 ${d.gap} mm 增至 ${d.gEff.toFixed(1)} mm，k 与效率同步下降；需增加限位/球铰自适应或降低安装公差。`);
+  if(d.finH>0&&d.finP<6) warn.push(`散热筋间距仅 ${d.finP} mm，自然对流边界层重叠，有效换热系数降到 ${d.hEff.toFixed(1)} W/m²K。建议间距 ≥ 8 mm，或改用强制风冷。`);
   $('warnbox').style.display=warn.length?'block':'none';
   $('warnbox').innerHTML=warn.join('<br>');
 
@@ -1085,7 +1116,7 @@ function update(){
     `<b>拼接磁板</b>${d.nTile}×${d.nTile} 块 ${d.tile}×${d.tile}×${d.tf} mm ${d.ferName}；拼缝 ≤0.10 mm、错缝布置、薄胶粘接后磨平。当前等效 μr ${d.mu.toFixed(0)}。`+
     `<b>磁板尺寸</b>D ${d.Dfer} mm = 线圈 OD ${d.OD} + 每边 ${mg} mm 裕量；磁板必须完全盖住铝板边缘。`+
     `<b>铝板尺寸</b>D ${d.Dalu} mm ≤ 磁板 D，<b style="display:inline">不得外露悬边</b>；厚度 ${d.ta} mm 只需覆盖集肤深度（85 kHz 约 0.28 mm）。`+
-    `<b>散热筋</b>${d.finH>0?`铝板背面 ${d.nFin} 条直筋、高 ${d.finH} mm、间距约 18 mm、厚 2 mm；有效散热面积 ${d.Aeff.toFixed(3)} m²（增益 ${d.finFactor.toFixed(2)}×），温升由 ${d.dT.toFixed(0)} K 降到 ${d.dTfin.toFixed(0)} K。环境 ${d.amb} °C 时铝板表面约 ${d.aluT.toFixed(0)} °C、筋表面约 ${d.finT.toFixed(0)} °C、线圈约 ${d.coilT.toFixed(0)} °C；筋高超过约 25 mm 后边际收益变小，优先增加筋数/风速。`:'未设置散热筋（高度 0），仅靠铝板裸面自然对流散热。'}`+
+    `<b>散热筋</b>${d.finH>0?`铝板背面 ${d.nFin} 条直筋、高 ${d.finH} mm、宽 ${d.finW} mm、间距 ${d.finP} mm；有效散热面积 ${d.Aeff.toFixed(3)} m²（增益 ${d.finFactor.toFixed(2)}×），筋效率 ${(d.etaFin*100).toFixed(0)}%，通道有效换热系数 ${d.hEff.toFixed(1)} W/m²K，温升由 ${d.dT.toFixed(0)} K 降到 ${d.dTfin.toFixed(0)} K。环境 ${d.amb} °C 时铝板表面约 ${d.aluT.toFixed(0)} °C、筋表面约 ${d.finT.toFixed(0)} °C、线圈约 ${d.coilT.toFixed(0)} °C。三者共同决定散热：筋高增加面积、筋宽改善导热（薄筋效率低）、间距过小会抑制自然对流（<6 mm 明显恶化）；筋高超过约 25 mm 后边际收益变小，优先加密筋或加风冷。`:'未设置散热筋（高度 0），仅靠铝板裸面自然对流散热。'}`+
     `<b>充电效率</b>按 P/(P+2×单端损耗) 估算（单端含铜损、铝板涡流与磁板铁损 Steinmetz 估算）：线圈-线圈 ${d.etaCoil.toFixed(1)}%，再乘逆变/整流约 95% 得系统效率 ${d.etaSys.toFixed(1)}%。样机受线束与开关损耗影响通常再低 0.5–1.5 个百分点。`+
     `<b>Z 轴间隙</b>${d.gap} mm 为两线圈面之间的距离（含两侧外壳厚度），不是铁氧体之间的距离。间隙每翻倍 k 约掉 1/3，能小则小。`+
     `<b>X / Y 偏心</b>水平偏心按两圆环互感的精确公式逐匝求和：δ ${d.delta.toFixed(1)} mm 时 k 衰减 ${(d.misDecay*100).toFixed(0)}%。经验边界：偏移 ≤15% OD 影响 <10%；>25% OD 急剧恶化。AGV 停位重复精度建议按 ±20 mm 校核，必要时加 V 型导向或锥形对中。`+
@@ -1110,7 +1141,8 @@ function update(){
 /* 输入事件 */
 [['pw','pwv',v=>v+' W'],['gap','gapv',v=>v+' mm'],['dx','dxv',v=>v+' mm'],
  ['dy','dyv',v=>v+' mm'],['tilt','tiltv',v=>(+v).toFixed(1)+'°'],['tf','tfv',v=>v+' mm'],
- ['ta','tav',v=>v+' mm'],['fh','fhv',v=>v+' mm'],['amb','ambv',v=>v+' °C'],['ts','tsv',v=>v+' mm'],['nt','nv',v=>v]]
+ ['ta','tav',v=>v+' mm'],['fh','fhv',v=>v+' mm'],['fw','fwv',v=>v+' mm'],['fp','fpv',v=>v+' mm'],
+ ['amb','ambv',v=>v+' °C'],['ts','tsv',v=>v+' mm'],['nt','nv',v=>v]]
 .forEach(([id,lab,f])=>{
   $(id).addEventListener('input',e=>{ $(lab).textContent=f(e.target.value); update(); });
 });
@@ -1118,10 +1150,11 @@ $('gt').addEventListener('input',e=>{ $('gv').textContent=(+e.target.value).toFi
 $('freq').addEventListener('change',update);
 $('app').addEventListener('change',e=>{
   const g=APP_GAP[e.target.value];
-  $('gap').value=g; $('gapv').textContent=g+' mm'; update();
+  $('gap').value=g; $('gapv').textContent=g+' mm'; syncNums(); update();
 });
 $('autoN').addEventListener('change',e=>{
   $('nt').disabled=e.target.checked;
+  if($('nt_num')) $('nt_num').disabled=e.target.checked;
   $('nwrap').style.opacity=e.target.checked?0.4:1;
   update();
 });
@@ -1137,6 +1170,53 @@ document.querySelectorAll('#topoSel button').forEach(b=>{
     b.classList.add('on'); state.topo=b.dataset.v; update();
   });
 });
+
+/* 所有滑块配套数字输入：可直接键入，也可拖滑块，单位自动带出 */
+function syncNums(){
+  document.querySelectorAll('input[type=range][data-dual]').forEach(r=>{
+    const n=document.getElementById(r.id+'_num');
+    if(n && document.activeElement!==n) n.value=r.value;
+  });
+}
+function enhanceNumInputs(){
+  document.querySelectorAll('input[type=range]').forEach(r=>{
+    if(r.dataset.dual) return;
+    const span=document.getElementById(r.id+'v');
+    if(!span) return;
+    const m=(span.textContent||'').trim().match(/^(-?\d+(?:\.\d+)?)\s*(.*)$/);
+    const unit=m?m[2].trim():'';
+    const wrap=document.createElement('span');
+    wrap.className='valbox';
+    const num=document.createElement('input');
+    num.type='number'; num.id=r.id+'_num'; num.className='valedit';
+    num.min=r.min; num.max=r.max; num.step=r.step; num.value=r.value;
+    num.title='可直接输入数值，也可拖动上方滑块';
+    wrap.appendChild(num);
+    if(unit){ const i=document.createElement('i'); i.textContent=unit; wrap.appendChild(i); }
+    span.style.display='none';
+    span.parentNode.insertBefore(wrap,span);
+    r.dataset.dual='1';
+    r.addEventListener('input',()=>{ if(document.activeElement!==num) num.value=r.value; });
+    num.addEventListener('input',()=>{
+      const v=parseFloat(num.value);
+      if(!isFinite(v)||v<+r.min||v>+r.max) return;
+      r.value=v;
+      r.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    num.addEventListener('change',()=>{
+      let v=parseFloat(num.value);
+      if(!isFinite(v)){ num.value=r.value; return; }
+      v=clamp(v,+r.min,+r.max);
+      const st=+r.step||0;
+      if(st>0) v=Math.round(v/st)*st;
+      num.value=v; r.value=v;
+      r.dispatchEvent(new Event('input',{bubbles:true}));
+    });
+    num.addEventListener('focus',()=>num.select());
+  });
+}
+enhanceNumInputs();
+if($('nt_num')) $('nt_num').disabled=$('autoN').checked;
 
 /* 3D 交互 */
 S3.cv=$('c3d'); S3.ctx=S3.cv.getContext('2d');
@@ -1302,6 +1382,8 @@ function applyInput(inp){
   $('tiltv').textContent=(+$('tilt').value).toFixed(1)+'°';
   $('freq').value=inp.freq; $('tf').value=inp.tf; $('ta').value=inp.ta;
   $('fh').value=inp.finH==null?15:inp.finH;
+  $('fw').value=inp.finW==null?4:inp.finW;
+  $('fp').value=inp.finPitch==null?12:inp.finPitch;
   $('amb').value=inp.amb==null?25:inp.amb;
   $('ts').value=inp.tile; $('gt').value=inp.gapTile;
   if(inp.app) $('app').value=inp.app;
@@ -1311,6 +1393,10 @@ function applyInput(inp){
   [...$('shape').children].forEach(b=>b.classList.toggle('on',b.dataset.v===state.shape));
   state.topo=inp.topo||'ss';
   [...$('topoSel').children].forEach(b=>b.classList.toggle('on',b.dataset.v===state.topo));
+  $('nt').disabled=!!inp.autoN;
+  if($('nt_num')) $('nt_num').disabled=!!inp.autoN;
+  $('nwrap').style.opacity=inp.autoN?0.4:1;
+  syncNums();
   update();
 }
 $('saveBtn').addEventListener('click',()=>{
@@ -1436,7 +1522,7 @@ ul.limits{margin:4px 0 0 15px;padding:0;font-size:9.8px;color:#5b6877;line-heigh
 <ul class="sum">
   <li>在 ${d.P} W、${d.gap} mm 间隙、${(d.freq/1000).toFixed(0)} kHz 下，线圈-线圈效率 <b>${d.etaCoil.toFixed(1)}%</b>，系统效率 ${d.etaSys.toFixed(1)}%，两端损耗合计 ${d.Ploss.toFixed(0)} W。</li>
   <li>磁板 ${esc(d.ferName)} 拼块后等效 μr ${d.mu.toFixed(0)}；气隙磁密 ${d.Bmax.toFixed(1)} mT，饱和裕度 ${d.satMargin.toFixed(1)}×。</li>
-  <li>铝板 ${esc(d.aluName)} 厚 ${d.ta} mm + 散热筋 ${d.finH} mm；${d.amb} °C 环境下铝板表面 ${d.aluT.toFixed(0)} °C、筋表面 ${d.finT.toFixed(0)} °C、线圈约 ${d.coilT.toFixed(0)} °C。</li>
+  <li>铝板 ${esc(d.aluName)} 厚 ${d.ta} mm + 散热筋 ${d.finH} mm（宽 ${d.finW} / 距 ${d.finP} mm）；${d.amb} °C 环境下铝板表面 ${d.aluT.toFixed(0)} °C、筋表面 ${d.finT.toFixed(0)} °C、线圈约 ${d.coilT.toFixed(0)} °C。</li>
   <li>${fem?`ANSYS Maxwell 2D 复核完成：L ${fem.L.toFixed(2)} µH、M ${fem.M.toFixed(2)} µH、k ${fem.k.toFixed(3)}（与解析偏差见第 06 节）。`:'本次未执行 ANSYS 校核，建议定型前补充。'}</li>
 </ul>
 
@@ -1466,7 +1552,8 @@ ${p4('磁板材料',esc(d.ferName)+'（μr '+d.mu0+'）','磁板厚度',d.tf+' m
 ${p4('磁板拼块',d.nTile+' × '+d.nTile+' 块 · '+d.tile+' mm','拼缝宽度',d.gapTile+' mm')}
 ${p4('拼后等效 μr',d.mu.toFixed(0),'磁板直径',d.Dfer+' mm')}
 ${p4('铝板材质',esc(d.aluName),'铝板厚度 / 直径',d.ta+' / '+d.Dalu+' mm')}
-${p4('散热筋（直筋）',d.nFin+' 条 × '+d.finH+' mm','有效散热面积',d.Aeff.toFixed(3)+' m²（'+d.finFactor.toFixed(2)+'×）')}
+${p4('散热筋（直筋）',d.nFin+' 条 × '+d.finH+' mm','筋宽 / 筋间距',d.finW+' / '+d.finP+' mm')}
+${p4('筋效率 / 有效 h',(d.etaFin*100).toFixed(0)+' % / '+d.hEff.toFixed(1)+' W/m²K','有效散热面积',d.Aeff.toFixed(3)+' m²（'+d.finFactor.toFixed(2)+'×）')}
 ${p4('环境温度',d.amb+' °C','裸板温升 / 加筋温升',d.dT.toFixed(0)+' / '+d.dTfin.toFixed(0)+' ℃')}
 ${p4('铝板表面温度',d.aluT.toFixed(0)+' °C','散热筋表面温度',d.finT.toFixed(0)+' °C')}
 ${p4('线圈估算温度',d.coilT.toFixed(0)+' °C','外壳直径',d.Dhous+' mm')}
@@ -1506,7 +1593,7 @@ ${p4('磁板质量',d.ferMass.toFixed(2)+' kg','铝板质量',d.aluMass.toFixed(
   <li>磁场基准为 Maxwell 2D 轴对称涡流场标定（D250 / 12 匝 / 30 mm → L 66.3 µH、M 44.8 µH、k 0.676），其余功率与尺寸按解析模型外推。</li>
   <li>偏心衰减按两圆环互感精确公式逐匝求和；接收端倾斜按圆盘间隙 RMS 折算为等效间隙，未考虑三维端部效应与倾斜引入的横向力。</li>
   <li>补偿拓扑按基波阻抗模型计算，谐振元件取标称值；失谐评估只计入 L/M ±5% 漂移，未含电容容差与开关器件压降。</li>
-  <li>温升为自然对流稳态估算（h = 10 W/m²K、筋效率 0.85），未含强制风冷、辐射与瞬态。</li>
+  <li>温升为自然对流稳态估算（基板 h = 10 W/m²K，筋效率按 tanh(mL)/(mL) 计算，筋间距 &lt;10 mm 时按通道效应折减 h），未含强制风冷、辐射与瞬态。</li>
   <li>交流电阻按 Dowell 型解析近似计算：单丝 0.1 mm 趋肤 + 股间邻近效应 + 层数修正，未含接头与端部损耗。</li>
   <li>30 cm 磁密按磁偶极子估算（双板对消等效磁矩），用于 ICNIRP 公众暴露 27 µT 的初判，定型前需按 IEC 62233 实测。</li>
   <li>合规校核为设计自检，参考 IEC 61980-1 / SAE J2954 建议值，不等同第三方认证。</li>
