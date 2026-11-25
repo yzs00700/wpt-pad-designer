@@ -2,6 +2,8 @@
 
 面向 AGV / 移动机器人等大功率无线充电场景的参数化线圈设计器：浏览器里完成几何、Litz、磁板、铝板、补偿拓扑与损耗筛查，并可调用本机 **ANSYS Electronics Desktop / Maxwell 2D & 3D** 做工程复核，最后导出多页 PDF 报告。
 
+仓库地址：[GitHub](https://github.com/yzs00700/wpt-pad-designer) · [Gitee 镜像](https://gitee.com/hello-yong/wpt-pad-designer)
+
 ![设计器界面](docs/preview.jpg)
 
 > 这是一个工程筛查与复核工具，不是第三方认证或最终签核。所有解析结果、2D/3D 有限元结果都应结合具体产品工况由工程师确认。
@@ -84,6 +86,8 @@ cd wpt-pad-designer
 ### Gitee 镜像（可选）
 
 推荐把 GitHub 作为主仓库，Gitee 通过“导入仓库”或“仓库镜像管理”从 GitHub 自动拉取。这样日常只需要向 GitHub 推送，Gitee 会定时同步。
+
+Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显示名 `yzs00700`），与 GitHub 用户名不同，克隆 Gitee 时请使用 `https://gitee.com/hello-yong/wpt-pad-designer.git`。
 
 ## 目录结构
 
