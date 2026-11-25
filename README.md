@@ -60,6 +60,31 @@ http://127.0.0.1:8765/
 
 端口可通过参数修改：`wpt_bridge.py 8766` 或 `.\start_bridge.ps1 8766`。
 
+## 多台电脑 / 网页编辑同步
+
+发布到 GitHub 后，家里和公司电脑各 clone 一次：
+
+```powershell
+git clone https://github.com/yzs00700/wpt-pad-designer.git
+cd wpt-pad-designer
+```
+
+以后改完代码，双击 `sync.bat`（或运行 `.\sync.ps1`）：
+
+1. 自动 `git pull --rebase --autostash origin main`；
+2. 自动提交本地改动（提交信息默认带时间和电脑名）；
+3. 自动 `git push origin main`；如配置了 `gitee` remote，也会一起推送。
+
+也可以直接在 GitHub 网页上编辑文件并提交；下次运行 `sync.bat` 会把网页上的修改拉到本地。
+
+首次推送/拉取需要登录一次 GitHub：Windows 会弹出浏览器授权或用户名/Token 窗口，成功后由 Git Credential Manager 记住，之后不用重复输入。
+
+如果两台电脑改了同一行，脚本会停在冲突状态，按 Git 提示解决后重新运行即可。
+
+### Gitee 镜像（可选）
+
+推荐把 GitHub 作为主仓库，Gitee 通过“导入仓库”或“仓库镜像管理”从 GitHub 自动拉取。这样日常只需要向 GitHub 推送，Gitee 会定时同步。
+
 ## 目录结构
 
 | 文件 | 说明 |
@@ -67,6 +92,7 @@ http://127.0.0.1:8765/
 | `wpt-pad-designer.html` | 主页面（已内联视图模块，可直接打开） |
 | `wpt-views-1.js` … `wpt-views-5.js` | 3D 场景、2D 截面/俯视、标注、图例等视图源码 |
 | `build-views.ps1` | 合并视图模块并重新内联到主页面 |
+| `sync.ps1` / `sync.bat` | 多台电脑一键同步：拉取 → 提交 → 推送 GitHub/Gitee |
 | `wpt_bridge.py` | HTTP 桥、2D Maxwell、严格网格审计与产物打包 |
 | `wpt_2d_worker.py` | 2D 求解子进程（取消时整树终止） |
 | `wpt_bridge_3d.py` | 3D Maxwell 建模、求解、场图导出与自动适配视图 |
