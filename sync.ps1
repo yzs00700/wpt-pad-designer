@@ -5,6 +5,10 @@
   [switch]$NoGitee
 )
 $ErrorActionPreference = 'Stop'
+try {
+  [Console]::OutputEncoding = [Text.Encoding]::UTF8
+  $OutputEncoding = [Text.Encoding]::UTF8
+} catch {}
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repo
 
