@@ -1,17 +1,44 @@
-# 临时与本地环境
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 本地环境与临时文件
 .screenshots/
 .trae-html-share-packages/
 .trae*/
 *.log
-__pycache__/
-*.pyc
-.venv/
-venv/
+batch.log
+
+# 仿真产物 / 大文件（不入库）
+simulation_outputs/
+engineering_audit/
+*.aedt
+*.aedtresults/
+*.aedt.auto
+*.aedt.lock
+*.aedtz
+*.aedtplt
+*.zip
+*.pdf
+
+# 生成的前端 bundle（由 build-views.ps1 从 wpt-views-1..5.js 生成）
+wpt-views.js
+
+# 历史备份
+*.bak.html
+*.before-ui.html
 
 # 本地导出的数据与报告
 *.json
 !package.json
-导出的报告*.html
+# 回归基线（随仓库发布，保证 wpt_regression.py / wpt_3d_regression.py 可复现）
+!validation_results.json
+!validation_3d_circular.json
+!validation_3d_dd.json
+!validation_3d_sq.json
+!validation_3d_rect.json
 
 # 系统文件
 Thumbs.db

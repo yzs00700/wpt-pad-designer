@@ -1,0 +1,124 @@
+# WPT Pad Designer · 大功率无线充电线圈设计器
+
+面向 AGV / 移动机器人等大功率无线充电场景的参数化线圈设计器：浏览器里完成几何、Litz、磁板、铝板、补偿拓扑与损耗筛查，并可调用本机 **ANSYS Electronics Desktop / Maxwell 2D & 3D** 做工程复核，最后导出多页 PDF 报告。
+
+![设计器界面](docs/preview.jpg)
+
+> 这是一个工程筛查与复核工具，不是第三方认证或最终签核。所有解析结果、2D/3D 有限元结果都应结合具体产品工况由工程师确认。
+
+## 功能
+
+- **功率范围 10 W – 10 kW**：滑块 + 可键入，内置常用功率档位；3 kW 默认失败点会明确提示是电压/母线边界，而不是 Litz 选型。
+- **四种线圈形态**：圆形、方形、矩形、DD / DDQ / BP（DDQ / BP 的 3D 多线圈仍在开发）。
+- **TX / RX 四种查看模式**：仅 TX、仅 RX、组合、对比；单侧视图自动隐藏 Z 间隙、总高、TX→RX 箭头与偏心/间隙标注。
+- **连续平面螺旋 3D**：圆形/方形/矩形均为连续螺旋绕组，带引线、端部与圆角截面；不是同心圆示意。
+- **Litz 与交流损耗**：股数/单丝直径、束径、匝距、Dowell 近似 Rac/Rdc、铜损/铝损/磁芯损耗筛查。
+- **候选搜索漏斗**：功率档 + 搜索范围 → 粗选约 10–20 组 → 精修 Top-3 邻域（OD ±25 mm、N ±1）→ 5 组候选。
+- **安装开关**：第 4/6/7/8/9 节标题左侧有「安装」复选框；未安装层从 3D/2D/报告中消失，相关厚度与损耗按 0 处理。
+- **ANSYS Maxwell 2D 工程签核**：严格网格、自适应求解、铜/铝损耗、磁密、场图、网格 CSV 与审计 ZIP。
+- **ANSYS Maxwell 3D 复核**：实体螺旋绕组、整机/单侧模型、L/M/k、场图；单侧模型只建所选侧，M/k 返回空值。
+- **仿真实时锁**：求解期间锁定所有参数输入，只保留「停止仿真」；停止或关闭页面会自动终止 worker 与 AEDT，避免残留进程。
+- **多页 PDF 报告**：封面、摘要、参数、2D/3D 结果表、模型图、附 A（2D 原始图）、附 B（3D 原始图）；在新窗口/标签页打开，不破坏当前页面。
+- **主题适配**：深色/浅色主题下 3D 标注、仿真进度层、图例均自动适配。
+
+## 快速开始
+
+### 环境
+
+- Windows 10/11
+- ANSYS Electronics Desktop **2025 R2**（含 Maxwell；PyAEDT 随 AEDT 自带）
+- 浏览器：Chrome / Edge（WebGL 2）
+
+> 没有 ANSYS 也能打开页面做解析筛查；连接求解、2D/3D 复核和审计产物需要本机 AEDT 与有效许可证。
+
+### 启动
+
+方式一（推荐，自动查找 AEDT 自带 Python）：
+
+```powershell
+.\start_bridge.ps1
+```
+
+方式二（手动指定 AEDT CPython）：
+
+```powershell
+& "D:\ANSYS2025R2\ANSYS Inc\v252\AnsysEM\commonfiles\CPython\3_10\winx64\Release\python\python.exe" wpt_bridge.py
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:8765/
+```
+
+桥接同时提供：
+
+- `GET /health`：空闲/忙碌状态
+- `POST /solve`：2D Maxwell（独立 worker，可取消）
+- `POST /solve3d`：3D Maxwell 后台任务
+- `GET /artifacts/...`：审计图片与 ZIP
+
+端口可通过参数修改：`wpt_bridge.py 8766` 或 `.\start_bridge.ps1 8766`。
+
+## 目录结构
+
+| 文件 | 说明 |
+|---|---|
+| `wpt-pad-designer.html` | 主页面（已内联视图模块，可直接打开） |
+| `wpt-views-1.js` … `wpt-views-5.js` | 3D 场景、2D 截面/俯视、标注、图例等视图源码 |
+| `build-views.ps1` | 合并视图模块并重新内联到主页面 |
+| `wpt_bridge.py` | HTTP 桥、2D Maxwell、严格网格审计与产物打包 |
+| `wpt_2d_worker.py` | 2D 求解子进程（取消时整树终止） |
+| `wpt_bridge_3d.py` | 3D Maxwell 建模、求解、场图导出与自动适配视图 |
+| `wpt_3d_worker.py` | 3D 求解子进程 |
+| `wpt_regression.py` | 解析 vs 2D FEM 基线回归（`--rerun` 可重跑） |
+| `wpt_3d_regression.py` | 3D 圆形/DD/方形/矩形回归（`--check` / `--run`） |
+| `wpt_icepak_thermal.py` | Icepak 热筛查实验脚本（尚未纳入签核） |
+| `WPT_Designer_改进方案.md` | 设计取舍、建模口径与端到端实测记录 |
+| `Litz_Maxwell_验证计划.md` | Litz / Maxwell 验证计划 |
+
+## 已实测的基线
+
+以下数值来自本机 AEDT 2025 R2 的端到端运行，仅代表测试工况（3 kW、85 kHz、30 mm 间隙、圆形 Ø250）：
+
+| 项目 | 结果 |
+|---|---|
+| 2D 严格网格 | L 44.48 µH / M 30.37 µH / k 0.6829；铜损 14.24 W、铝损 4.91 W、Bmax 106.6 mT |
+| 3D 组合 TX+RX | L 42.92 µH / M 31.00 µH / k 0.7221 |
+| 3D 单侧 TX | L 32.92 µH；M/k 为空（单侧模型） |
+| 3D 单侧 RX | L 33.13 µH；M/k 为空（单侧模型） |
+| 2D vs 3D | L +3.6%、M −2.0%、k −5.4%（轴对称近似的已知偏差方向） |
+| PDF | A4 14 页，附 A/附 B 各 4 张原图，无空白页；2D-only 报告明确标注未执行 3D |
+| 中止/关页 | 2D worker + AEDT 在约 1–3 s 内清理，桥接保持可用 |
+
+回归检查：
+
+```powershell
+& "<AEDT Python>" wpt_regression.py
+& "<AEDT Python>" wpt_3d_regression.py --check
+```
+
+## 已知限制
+
+- **3D 磁板按整块建模**，未建拼缝/分段，L 与 k 相对实际拼块磁板偏高。
+- **DDQ / BP 的 Q 线圈与多线圈 3D 尚未实现**；页面会明确提示并拒绝把 2D 结果当作 3D。
+- **3D 参数扫描 UI 尚未实现**，目前是单点复核；批量扫描用 `wpt_3d_sweep.py`。
+- **Icepak 温升未纳入签核**：页面温度仍为解析筛查值，不冒充 Icepak 结果。
+- 2D 为轴对称单匝环等效，不含径向拼缝、实体绕组端部和引线；与 3D 的差异见上表。
+- 3D 求解时间约 1–6 分钟，取决于网格、匝数与机器性能。
+
+## 开发
+
+修改 `wpt-views-*.js` 后重新生成内联页面：
+
+```powershell
+.\build-views.ps1
+```
+
+只改 `wpt-pad-designer.html` 中的样式/结构时无需重建，但请注意不要把内联模块覆盖掉。
+
+## 许可证
+
+本项目以 [MIT License](LICENSE) 开源。
+
+ANSYS、Maxwell、Icepak、AEDT 是 Ansys, Inc. 的商标或注册商标。本仓库不包含 Ansys 软件或其许可证；使用本项目调用 AEDT 时需自行遵守 Ansys 的许可协议。
