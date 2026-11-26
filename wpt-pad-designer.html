@@ -524,7 +524,7 @@ body.simLocked .side{pointer-events:none}
         <path d="M16 11c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>
         <path d="M17.6 5.5l-5.2 8.3h4.1l-2.1 7.2 6.9-9.4h-4.1l2.4-6.1z" fill="currentColor"/>
       </svg><span>WPT·Pad</span></h1>
-      <div class="sub">WPT Pad Designer · 大功率无线充电线圈参数化设计器 · v0.3.4</div>
+      <div class="sub">WPT Pad Designer · 大功率无线充电线圈参数化设计器 · v0.3.5</div>
       <div class="brandtools">
         <div class="expandtools">
           <button id="expandAll" type="button" title="展开 / 收起全部">全部展开</button>
@@ -3515,7 +3515,7 @@ function computeCore(inp){
   const finW=clamp(+inp.finW||4,1,10);                     /* 筋宽 mm */
   const finP=clamp(+inp.finPitch||12,4,40);                /* 筋间距 mm */
   const amb=inp.amb==null?25:+inp.amb;
-  const coilH=4;
+  const coilH=clamp(bundleOD*Math.max(1,nLayer)+0.15,1.0,12);
   const shellOn=inp.shellOn!==false;
   const SM=shellOn?(SHELL_MAT[inp.shellMat]||SHELL_MAT.fr4):SHELL_MAT.air;
   const shell=shellOn?clamp(+inp.shellT||3,1.5,8):0.01;
@@ -3803,7 +3803,8 @@ function syncInnerUI(d){
       if($('circID').value!==iv) $('circID').value=iv;
       $('innerHintC').innerHTML='内径 = '+d.OD+' − 2 × '+d.N+' × ('+d.bundleOD.toFixed(2)+' + '+d.turnIns.toFixed(2)+') = '+
         '<b style="color:var(--brand)">'+d.ID.toFixed(1)+' mm</b>'+
-        (d.innerFeasibleC?' · 中间空心，可直接绕线。':' · <b style="color:var(--warn)">外径不足以容纳当前匝数/线径，已按最小 2 mm 截断。</b>');
+        (d.innerFeasibleC?' · 中间空心，可直接绕线。':' · <b style="color:var(--warn)">外径不足以容纳当前匝数/线径，已按最小 2 mm 截断。</b>')+
+        '<br>实测内径反算：turnIns ≈ (OD−ID)/(2N) − 束径；例如 Ø98 / Ø48 / 15 匝 → 1.667 − 1.54 ≈ 0.13 mm。';
     }else if(autoC){
       $('innerHintC').textContent='内径自动：当前为锁定几何，按锁定值显示 Ø'+d.ID.toFixed(1)+' mm。';
     }else{
@@ -3860,6 +3861,7 @@ function update(preserveResults){
     row('工程需求 → 标准规格',d.nStrEng+' → '+d.nStr+' 股')+
     row('估算成品束线外径',d.bundleOD.toFixed(2)+' mm（填充率 '+(d.litzFill*100).toFixed(0)+'%）· 2D/3D 绘图线径同步')+
     row('单匝径向节距',d.turnPitch.toFixed(2)+' mm · '+(d.litzFit?'紧密排布可布置':'需多层/加大线圈'))+
+    row('线圈高度',d.coilH.toFixed(2)+' mm（束径 × 层数 + 0.15 mm）')+
     row('直流电阻 Rdc',d.Rdc.toFixed(1)+' mΩ')+
     row('交流电阻系数 Rac/Rdc',d.kRac.toFixed(2)+'（'+d.dStr+' mm 丝 / '+d.nLayer+' 层）')+
     row('交流电阻 Rac',d.Rcu.toFixed(1)+' mΩ')+
@@ -5184,7 +5186,7 @@ function reportHTML(d,fem,fem3d,audit){
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin:3mm 0}.kpi{padding:2.5mm;border:1px solid #d8e0e7;background:#fbfcfd}.kpi b{display:block;font:700 14pt Consolas,monospace;color:#10231b}.kpi span{font-size:7.5pt;color:#5d6b79}
   table{width:100%;border-collapse:collapse;font-size:8.5pt}th,td{text-align:left;padding:1.5mm 2mm;border-bottom:1px solid #dce3e9;vertical-align:top}th{background:#edf3f0;color:#30453b}.num{font-family:Consolas,monospace;white-space:nowrap}.small{font-size:7.7pt;color:#596777}.pics{display:grid;grid-template-columns:1fr 1fr;gap:2mm}.pics img{width:100%;height:68mm;object-fit:contain;border:1px solid #d8e0e7}.footer{margin-top:4mm;border-top:1px solid #d8e0e7;padding-top:2mm;font-size:7.5pt;color:#657386}
   </style></head><body>
-  <h1>${esc(name)} · 无线充电耦合器设计评审</h1><div class="meta">WPT·Pad v0.3.4 · ${now} · AEDT ${audit?'2025 R2严格网格':(fem3d?'2025 R2 3D':'未执行严格签核')} · 单位 mm / kHz / µH / A / W</div>
+  <h1>${esc(name)} · 无线充电耦合器设计评审</h1><div class="meta">WPT·Pad v0.3.5 · ${now} · AEDT ${audit?'2025 R2严格网格':(fem3d?'2025 R2 3D':'未执行严格签核')} · 单位 mm / kHz / µH / A / W</div>
   <div class="status ${!d.systemFeasible?'bad':(audit?'ok':(fem3d?'warn':'warn'))}"><b>${!d.systemFeasible?'结论：当前系统边界不可实现，禁止按当前工况签核。':(audit?'结论：Maxwell严格网格签核完成，仍需样机/热验证。':(fem3d?'结论：已完成 Maxwell 3D 电磁校核；工作点损耗、Icepak 与样机尚未闭环。':'结论：设计初选，尚未完成Maxwell工程签核。'))}</b><br>
   输出${d.P} W，电池${d.vbat.toFixed(0)} V，母线${d.vdc.toFixed(0)} V；TX/RX电流${d.workPoint.iTx.toFixed(1)}/${d.workPoint.iRx.toFixed(1)} A RMS，所需基波${d.vinRequired.toFixed(0)} V，可用${d.vinAvailable.toFixed(0)} V；${!d.systemFeasible?'母线电压或绕组窗口不足。':'输入边界通过初步可行性检查。'}</div>
   <div class="kpis">${kpi(d.P,'W','输出目标')}${kpi(d.vbat.toFixed(0),'V','电池')}${kpi(d.systemJ.toFixed(2),'A/mm²','系统电流密度')}${kpi(d.nStr,'股','Litz候选')}</div>
@@ -5329,7 +5331,7 @@ ul.limits{margin:2mm 0 0 5mm;padding:0;font-size:8.8pt;color:#5b6877;line-height
     <h1>${esc(name)}</h1>
     <div class="csub">大功率无线充电线圈 · 磁板 · 铝板 设计计算报告</div>
     <div class="cgrid">
-      <div class="cbox"><div class="k">项目 / 版本</div><div class="v">${esc(name)} · v0.3.4</div></div>
+      <div class="cbox"><div class="k">项目 / 版本</div><div class="v">${esc(name)} · v0.3.5</div></div>
       <div class="cbox"><div class="k">生成时间</div><div class="v">${now}</div></div>
       <div class="cbox"><div class="k">额定功率 / 频率</div><div class="v">${d.P} W / ${(d.freq/1000).toFixed(0)} kHz</div></div>
       <div class="cbox"><div class="k">耦合系数 / 效率</div><div class="v">k ${vK.toFixed(3)} / ${d.etaCoil.toFixed(1)}%</div></div>
