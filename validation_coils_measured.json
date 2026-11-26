@@ -1,11 +1,13 @@
 {
   "source": "用户实测 LCR 表（2026-11-26），85 kHz",
   "note": "DCR 反推铜截面；利兹线股数/线径为估算，不是拆线计数结论。测量温度未提供，按 20 °C 铜电阻率 1.724e-8 Ω·m 计算。",
-  "litz_note": "两支线成品外径均为 1.65–1.8 mm，但同 OD 不唯一确定铜截面；130×0.1 / 160×0.1 只是 DCR 候选，需拆线确认。",
+  "litz_note": "两支线成品外径均为 1.65–1.8 mm，按同一种线处理；DCR 与 AC/DC 满足 DCR=Rs/AC_DC，不是独立测量，130×0.1 / 160×0.1 只是股数候选。",
   "same_wire_hypothesis": {
-    "if_coil1_area_1p024": {"predicted_coil2_DCR_mohm": 64.0, "measured_coil2_DCR_mohm": 51.94, "difference_pct": -18.8},
-    "if_coil2_area_1p261": {"predicted_coil1_DCR_mohm": 69.8, "measured_coil1_DCR_mohm": 86.02, "difference_pct": 23.2},
-    "conclusion": "同一根线与两组 DCR 不能同时成立；需复核线圈长度/接触/温度，或确认同 OD 不同股数。"
+    "dcr_is_derived": true,
+    "dcr_formula": "DCR = Rs / AC_DC",
+    "if_coil1_area_1p024": {"predicted_coil2_DCR_mohm": 64.0, "measured_coil2_DCR_mohm": 51.94, "implied_coil2_AC_DC": 1.10, "table_AC_DC": 1.36},
+    "if_coil2_area_1p261": {"predicted_coil1_DCR_mohm": 69.8, "measured_coil1_DCR_mohm": 86.02, "implied_coil1_AC_DC": 1.43, "table_AC_DC": 1.16},
+    "conclusion": "同一种线可以成立；表中 DCR 更可能是 Rs/AC_DC 推算值，线圈2的1.36偏高会把DCR拉低。最终用四线DC或拆线确认股数。"
   },
   "coils": [
     {

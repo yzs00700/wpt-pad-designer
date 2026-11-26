@@ -1245,7 +1245,7 @@ body.simLocked .side{pointer-events:none}
       <div class="note" id="benchNote" style="margin-top:6px"></div>
       <div class="subhd" style="margin-top:8px"><i></i><span>自建样品测试标准</span></div>
       <table class="tbl" id="sampleTbl"></table>
-      <div class="note" id="sampleNote" style="margin-top:6px">两支线成品 OD 同为 1.65–1.8 mm，但 DCR 反推铜截面约 1.02 / 1.26 mm²；130×0.1 / 160×0.1 只是候选，同 OD 不等于同铜截面。若确认是同一根线，线圈2 DCR 应约 64 mΩ，而实测 51.94 mΩ（−19%），需复核长度、接触电阻或测量温度。3D 自感偏差 −1.4% / −2.3%。仅作仿真可信度基准，不替代样机签收。</div>
+      <div class="note" id="sampleNote" style="margin-top:6px">两支线成品 OD 同为 1.65–1.8 mm，按同一种线处理；表中 DCR 与 AC/DC 满足 DCR = Rs / AC_DC，不是两个独立测量，不能据此判定两种线规。若按线圈1的铜截面，线圈2 DCR 应约 64 mΩ，而实测 51.94 mΩ（−19%），更可能是 AC/DC 模型、夹具或温度差异；最终用四线 DC 或拆线确认。3D 自感偏差 −1.4% / −2.3%。仅作仿真可信度基准，不替代样机签收。</div>
       <div class="subhd" style="margin-top:8px"><i></i><span>当前数据来源等级</span></div>
       <table class="tbl" id="credTbl"></table>
       <div class="note" id="credNote" style="margin-top:6px"></div>
@@ -3984,8 +3984,8 @@ function update(preserveResults){
 
   {
     const rows=[
-      ['线圈 1','无磁板<br>Ø107 / Ø30 · 23 匝<br>成品 OD 1.65–1.8 mm · 股数候选 130×0.1','31.368 µH<br>86.02 mΩ · Q168','30.94 µH（线圈本体）','−1.4%'],
-      ['线圈 2','PC95 100×100×5<br>Ø98 / Ø48 · 15 匝<br>成品 OD 1.65–1.8 mm · 股数候选 160×0.1','33.241 µH<br>51.94 mΩ · Q250','≈32.5 µH（含引线）','−2.3%']
+      ['线圈 1','无磁板<br>Ø107 / Ø30 · 23 匝<br>成品 OD 1.65–1.8 mm · 同一种线，股数待拆线','31.368 µH<br>86.02 mΩ · Q168','30.94 µH（线圈本体）','−1.4%'],
+      ['线圈 2','PC95 100×100×5<br>Ø98 / Ø48 · 15 匝<br>成品 OD 1.65–1.8 mm · 同一种线，股数待拆线','33.241 µH<br>51.94 mΩ · Q250','≈32.5 µH（含引线）','−2.3%']
     ];
     $('sampleTbl').innerHTML='<tr><th>样品</th><th>结构 / 线材</th><th>实测 Ls / DCR / Q</th><th>WPT.pad 3D</th><th>偏差</th></tr>'+
       rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="tag ok">${r[4]}</span></td></tr>`).join('');
