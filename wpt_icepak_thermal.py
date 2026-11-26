@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Default circular WPT pad Icepak steady-state thermal screening model.
 
-实验性脚本（未纳入工程签核）：当前的域边界/HTC 赋值仍在校准，
-输出温度不能作为设计结论或对外报告的签核值。
+实验性脚本（未纳入工程签核）：单侧半模型筛查已跑通，HTC 挂在机柜底面，
+铝板与机柜底之间保留 2 mm 空气隙；输出温度只用于趋势与边界合理性检查，
+不能作为设计结论或对外报告的签核值。
 
 This is a conservative solid-conduction + external HTC model, not a full CFD fan/room model.
 It consumes Maxwell loss results and solves low/high ferrite-loss cases.
