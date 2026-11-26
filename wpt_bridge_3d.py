@@ -130,6 +130,48 @@ def _matrix_uh(d, expr):
     return None if v is None else v / 1000.0
 
 
+def _rounded_plate(mdl, name, xlen, ylen, z0, h, material, r=0.0):
+    """Create a square/rect plate with vertical-edge fillet R.
+
+    R=0 keeps the original sharp box. R close to half-width is approximated by a
+    cylinder to avoid CAD fillet failures at tangency.
+    """
+    obj = mdl.create_box(origin=[-xlen / 2.0, -ylen / 2.0, z0],
+                         sizes=[xlen, ylen, h], name=name, material=material)
+    try:
+        r = float(r or 0.0)
+    except Exception:
+        r = 0.0
+    if r <= 0.01:
+        return obj
+    half = min(xlen, ylen) / 2.0
+    if r >= half * 0.90:
+        try:
+            obj.delete()
+        except Exception:
+            pass
+        return mdl.create_cylinder(orientation="Z", origin=[0, 0, z0],
+                                   radius=half, height=h, name=name,
+                                   material=material)
+    edges = []
+    for e in obj.edges:
+        try:
+            vs = e.vertices
+            if len(vs) >= 2:
+                p0, p1 = vs[0].position, vs[1].position
+                if (abs(p0[0] - p1[0]) < 1e-3 and abs(p0[1] - p1[1]) < 1e-3
+                        and abs(p0[2] - p1[2]) > h * 0.5):
+                    edges.append(e.id)
+        except Exception:
+            pass
+    if edges:
+        try:
+            obj.fillet(edges=edges, radius=r)
+        except Exception:
+            pass
+    return obj
+
+
 def build_and_solve_3d(q):
     t0 = time.time()
     shape = str(q.get("shape", "circ"))
@@ -160,6 +202,9 @@ def build_and_solve_3d(q):
     DALUL = float(q.get("DaluL") or DALU)
     FER_SHAPE = str(q.get("ferShape", "round")).lower()
     FER_MODE = str(q.get("ferMode", "tiled")).lower()
+    FER_ON = str(q.get("ferOn", "1")).lower() not in ("0", "false", "no")
+    FER_R = float(q.get("ferR") or 0.0)
+    LEAD = float(q.get("lead_mm") or 0.0)
     INS = float(q.get("ins") or 0.25)
     TIM = float(q.get("tim") or 0.5)
     FER_MU = float(q.get("ferMu", 3300))
@@ -178,6 +223,8 @@ def build_and_solve_3d(q):
     # 圆线直径可能大于线圈标称高度：3D 绕组高度取两者较大值，保证线体不穿入 PI 层
     COIL_H3 = max(COIL_H, WIRE_D + 0.2)
     RB = max(230.0, OD / 2 + 100.0, DFERL / 2 + 50.0, DALUL / 2 + 50.0)
+    if LEAD > 0:
+        RB = max(R_OUT + LEAD, OD / 2 + 10.0, DFERL / 2 + 10.0, DALUL / 2 + 10.0)
     Z_RX = (GAP + COIL_H3) if PAIR else 0.0
 
     tag = time.strftime("%H%M%S")
@@ -224,31 +271,33 @@ def build_and_solve_3d(q):
                                   sizes=[xlen, ylen, h], name=name, material=material)
 
         square_mag = FER_SHAPE == "square"
-        # TX: coil 0..COIL_H, PI -INS..0, fer -INS-TF..-INS, TIM .., alu ..
-        if SIDE in ("tx", "both"):
-            if square_mag:
-                plate("pi_tx", DFERL, DFER, -INS, INS, "vacuum")
-                plate("fer_tx", DFERL, DFER, -INS - TF, TF, fer_name)
-                plate("tim_tx", DALUL, DALU, -INS - TF - TIM, TIM, "vacuum")
-                alu_tx = plate("alu_tx", DALUL, DALU, -INS - TF - TIM - TA, TA, alu_name)
-            else:
-                cyl("pi_tx", DFER / 2, -INS, INS, "vacuum")
-                cyl("fer_tx", DFER / 2, -INS - TF, TF, fer_name)
-                cyl("tim_tx", DALU / 2, -INS - TF - TIM, TIM, "vacuum")
-                alu_tx = cyl("alu_tx", DALU / 2, -INS - TF - TIM - TA, TA, alu_name)
-        # RX mirrored above gap（留 0.05 mm 间隙，避免与线圈顶面重合被判相交）
-        if SIDE in ("rx", "both"):
-            zpi = (Z_RX + COIL_H3 + 0.05) if PAIR else (COIL_H3 + 0.05)
-            if square_mag:
-                plate("pi_rx", DFERL, DFER, zpi, INS, "vacuum")
-                plate("fer_rx", DFERL, DFER, zpi + INS, TF, fer_name)
-                plate("tim_rx", DALUL, DALU, zpi + INS + TF, TIM, "vacuum")
-                alu_rx = plate("alu_rx", DALUL, DALU, zpi + INS + TF + TIM, TA, alu_name)
-            else:
-                cyl("pi_rx", DFER / 2, zpi, INS, "vacuum")
-                cyl("fer_rx", DFER / 2, zpi + INS, TF, fer_name)
-                cyl("tim_rx", DALU / 2, zpi + INS + TF, TIM, "vacuum")
-                alu_rx = cyl("alu_rx", DALU / 2, zpi + INS + TF + TIM, TA, alu_name)
+        alu_tx = alu_rx = None
+        if FER_ON:
+            # TX: coil 0..COIL_H, PI -INS..0, fer -INS-TF..-INS, TIM .., alu ..
+            if SIDE in ("tx", "both"):
+                if square_mag:
+                    _rounded_plate(mdl, "pi_tx", DFERL, DFER, -INS, INS, "vacuum", FER_R)
+                    _rounded_plate(mdl, "fer_tx", DFERL, DFER, -INS - TF, TF, fer_name, FER_R)
+                    _rounded_plate(mdl, "tim_tx", DALUL, DALU, -INS - TF - TIM, TIM, "vacuum", FER_R)
+                    alu_tx = _rounded_plate(mdl, "alu_tx", DALUL, DALU, -INS - TF - TIM - TA, TA, alu_name, FER_R)
+                else:
+                    cyl("pi_tx", DFER / 2, -INS, INS, "vacuum")
+                    cyl("fer_tx", DFER / 2, -INS - TF, TF, fer_name)
+                    cyl("tim_tx", DALU / 2, -INS - TF - TIM, TIM, "vacuum")
+                    alu_tx = cyl("alu_tx", DALU / 2, -INS - TF - TIM - TA, TA, alu_name)
+            # RX mirrored above gap（留 0.05 mm 间隙，避免与线圈顶面重合被判相交）
+            if SIDE in ("rx", "both"):
+                zpi = (Z_RX + COIL_H3 + 0.05) if PAIR else (COIL_H3 + 0.05)
+                if square_mag:
+                    _rounded_plate(mdl, "pi_rx", DFERL, DFER, zpi, INS, "vacuum", FER_R)
+                    _rounded_plate(mdl, "fer_rx", DFERL, DFER, zpi + INS, TF, fer_name, FER_R)
+                    _rounded_plate(mdl, "tim_rx", DALUL, DALU, zpi + INS + TF, TIM, "vacuum", FER_R)
+                    alu_rx = _rounded_plate(mdl, "alu_rx", DALUL, DALU, zpi + INS + TF + TIM, TA, alu_name, FER_R)
+                else:
+                    cyl("pi_rx", DFER / 2, zpi, INS, "vacuum")
+                    cyl("fer_rx", DFER / 2, zpi + INS, TF, fer_name)
+                    cyl("tim_rx", DALU / 2, zpi + INS + TF, TIM, "vacuum")
+                    alu_rx = cyl("alu_rx", DALU / 2, zpi + INS + TF + TIM, TA, alu_name)
 
         def make_coil(tagc, z, up=True):
             """连续平面螺旋（外→内），圆截面铜线；两端径向引线做端子。
@@ -393,14 +442,15 @@ def build_and_solve_3d(q):
         kc = (Mraw / Lc) if (Mraw and Lc) else None
 
         alu_loss = None
-        try:
-            ctx_alu = "alu_tx" if SIDE in ("tx", "both") else "alu_rx"
-            ld = m.post.get_solution_data(expressions=["SolidLoss"], report_category="Loss",
-                                          context=ctx_alu, setup_sweep_name=sweep)
-            if ld and ld.expressions:
-                alu_loss = _num(ld.get_expression_data(ld.expressions[0]))
-        except Exception:
-            pass
+        if FER_ON:
+            try:
+                ctx_alu = "alu_tx" if SIDE in ("tx", "both") else "alu_rx"
+                ld = m.post.get_solution_data(expressions=["SolidLoss"], report_category="Loss",
+                                              context=ctx_alu, setup_sweep_name=sweep)
+                if ld and ld.expressions:
+                    alu_loss = _num(ld.get_expression_data(ld.expressions[0]))
+            except Exception:
+                pass
 
         case_id = "3d_circ_%s" % tag
         active = []
@@ -409,12 +459,13 @@ def build_and_solve_3d(q):
         if o2 is not None:
             active.append(o2.name)
         fer_objs = []
-        if SIDE in ("tx", "both"):
-            active += ["fer_tx", "alu_tx"]
-            fer_objs.append("fer_tx")
-        if SIDE in ("rx", "both"):
-            active += ["fer_rx", "alu_rx"]
-            fer_objs.append("fer_rx")
+        if FER_ON:
+            if SIDE in ("tx", "both"):
+                active += ["fer_tx", "alu_tx"]
+                fer_objs.append("fer_tx")
+            if SIDE in ("rx", "both"):
+                active += ["fer_rx", "alu_rx"]
+                fer_objs.append("fer_rx")
         audit = (_export_3d_audit(m, case_id, active, fer_objs, sweep, FREQ) if export_images else
             {"case_id": case_id, "base_url": "", "artifacts": {},
              "errors": ["3D 图像导出需要 AEDT 图形模式；本次已回退到非图形求解，L/M/k 仍有效"]})
@@ -431,7 +482,7 @@ def build_and_solve_3d(q):
             "desktop": desktop,
             "params": {"OD": OD, "ID": ID, "N": N, "gap": GAP, "tf": TF, "ta": TA,
                        "Dfer": DFER, "DferL": DFERL, "Dalu": DALU, "DaluL": DALUL,
-                       "ferShape": FER_SHAPE, "ferMode": FER_MODE,
+                       "ferShape": FER_SHAPE, "ferMode": FER_MODE, "ferOn": FER_ON, "ferR": FER_R,
                        "ins": INS, "tim": TIM,
                        "ferMu": FER_MU, "aluSig": ALU_SIG, "shape": shape, "side": SIDE,
                        "wireD": round(WIRE_D, 2), "coilH3D": round(COIL_H3, 2), "RB": RB,
@@ -465,6 +516,7 @@ def build_and_solve_rect_3d(q):
         raise ValueError("rect 3D 只接受 shape='sq' 或 shape='rect'")
     FER_SHAPE = str(q.get("ferShape", "square")).lower()
     FER_MODE = str(q.get("ferMode", "tiled")).lower()
+    FER_R = float(q.get("ferR") or 0.0)
 
     SIDE = str(q.get("side", "both") or "both").lower()
     if SIDE == "compare":
@@ -579,11 +631,10 @@ def build_and_solve_rect_3d(q):
                 cyl("tim_tx", DALU / 2, -INS - TF - TIM, -INS - TF, "vacuum")
                 alu_tx = cyl("alu_tx", DALU / 2, -INS - TF - TIM - TA, -INS - TF - TIM, alu_name)
             else:
-                plate("pi_tx", -INS, 0, "vacuum", DFERL, DFER)
-                plate("fer_tx", -INS - TF, -INS, fer_name, DFERL, DFER)
-                plate("tim_tx", -INS - TF - TIM, -INS - TF, "vacuum", DALUL, DALU)
-                alu_tx = plate("alu_tx", -INS - TF - TIM - TA, -INS - TF - TIM,
-                               alu_name, DALUL, DALU)
+                _rounded_plate(mdl, "pi_tx", DFERL, DFER, -INS, INS, "vacuum", FER_R)
+                _rounded_plate(mdl, "fer_tx", DFERL, DFER, -INS - TF, TF, fer_name, FER_R)
+                _rounded_plate(mdl, "tim_tx", DALUL, DALU, -INS - TF - TIM, TIM, "vacuum", FER_R)
+                alu_tx = _rounded_plate(mdl, "alu_tx", DALUL, DALU, -INS - TF - TIM - TA, TA, alu_name, FER_R)
         if SIDE in ("rx", "both"):
             zpi = (z_rx + COIL_H3 + 0.05) if PAIR else (COIL_H3 + 0.05)
             if round_mag:
@@ -593,11 +644,10 @@ def build_and_solve_rect_3d(q):
                 alu_rx = cyl("alu_rx", DALU / 2, zpi + INS + TF + TIM,
                              zpi + INS + TF + TIM + TA, alu_name)
             else:
-                plate("pi_rx", zpi, zpi + INS, "vacuum", DFERL, DFER)
-                plate("fer_rx", zpi + INS, zpi + INS + TF, fer_name, DFERL, DFER)
-                plate("tim_rx", zpi + INS + TF, zpi + INS + TF + TIM, "vacuum", DALUL, DALU)
-                alu_rx = plate("alu_rx", zpi + INS + TF + TIM,
-                               zpi + INS + TF + TIM + TA, alu_name, DALUL, DALU)
+                _rounded_plate(mdl, "pi_rx", DFERL, DFER, zpi, INS, "vacuum", FER_R)
+                _rounded_plate(mdl, "fer_rx", DFERL, DFER, zpi + INS, TF, fer_name, FER_R)
+                _rounded_plate(mdl, "tim_rx", DALUL, DALU, zpi + INS + TF, TIM, "vacuum", FER_R)
+                alu_rx = _rounded_plate(mdl, "alu_rx", DALUL, DALU, zpi + INS + TF + TIM, TA, alu_name, FER_R)
 
         def make_coil(tagc, z, up=True):
             """连续矩形平面螺旋（外→内），圆截面铜线 + 两端径向引线。
@@ -780,7 +830,7 @@ def build_and_solve_rect_3d(q):
             "params": {"shape": shape, "geomLout": LOUT, "geomWout": WOUT,
                        "geomLin": LIN, "geomWin": WIN, "N": N, "gap": GAP,
                        "tf": TF, "ta": TA, "Dfer": DFER, "DferL": DFERL,
-                       "Dalu": DALU, "DaluL": DALUL, "ferShape": FER_SHAPE, "ferMode": FER_MODE,
+                       "Dalu": DALU, "DaluL": DALUL, "ferShape": FER_SHAPE, "ferMode": FER_MODE, "ferR": FER_R,
                        "ins": INS, "tim": TIM,
                        "ferMu": FER_MU, "aluSig": ALU_SIG, "coilH": COIL_H,
                        "RB": rb, "wireD": round(WIRE_D, 2), "side": SIDE},
@@ -857,6 +907,7 @@ def build_and_solve_dd_3d(q):
         raise ValueError("3D DD 模型目前只支持 ddType='dd'；DDQ/BP 的 Q/内外环 3D 正在开发")
     FER_SHAPE = str(q.get("ferShape", "square")).lower()
     FER_MODE = str(q.get("ferMode", "tiled")).lower()
+    FER_R = float(q.get("ferR") or 0.0)
 
     SIDE = str(q.get("side", "both") or "both").lower()
     if SIDE == "compare":
@@ -953,10 +1004,10 @@ def build_and_solve_dd_3d(q):
                 cyl("tim_tx", DALU / 2, -INS - TF - TIM, -INS - TF, "vacuum")
                 alu_tx = cyl("alu_tx", DALU / 2, -INS - TF - TIM - TA, -INS - TF - TIM, alu_name)
             else:
-                plate("pi_tx", -INS, 0, "vacuum", DFERL, DFER)
-                plate("fer_tx", -INS - TF, -INS, fer_name, DFERL, DFER)
-                plate("tim_tx", -INS - TF - TIM, -INS - TF, "vacuum", DALUL, DALU)
-                alu_tx = plate("alu_tx", -INS - TF - TIM - TA, -INS - TF - TIM, alu_name, DALUL, DALU)
+                _rounded_plate(mdl, "pi_tx", DFERL, DFER, -INS, INS, "vacuum", FER_R)
+                _rounded_plate(mdl, "fer_tx", DFERL, DFER, -INS - TF, TF, fer_name, FER_R)
+                _rounded_plate(mdl, "tim_tx", DALUL, DALU, -INS - TF - TIM, TIM, "vacuum", FER_R)
+                alu_tx = _rounded_plate(mdl, "alu_tx", DALUL, DALU, -INS - TF - TIM - TA, TA, alu_name, FER_R)
         # RX 镜像
         if SIDE in ("rx", "both"):
             zpi = (z_rx + COIL_H) if PAIR else COIL_H
@@ -967,11 +1018,10 @@ def build_and_solve_dd_3d(q):
                 alu_rx = cyl("alu_rx", DALU / 2, zpi + INS + TF + TIM,
                              zpi + INS + TF + TIM + TA, alu_name)
             else:
-                plate("pi_rx", zpi, zpi + INS, "vacuum", DFERL, DFER)
-                plate("fer_rx", zpi + INS, zpi + INS + TF, fer_name, DFERL, DFER)
-                plate("tim_rx", zpi + INS + TF, zpi + INS + TF + TIM, "vacuum", DALUL, DALU)
-                alu_rx = plate("alu_rx", zpi + INS + TF + TIM, zpi + INS + TF + TIM + TA,
-                               alu_name, DALUL, DALU)
+                _rounded_plate(mdl, "pi_rx", DFERL, DFER, zpi, INS, "vacuum", FER_R)
+                _rounded_plate(mdl, "fer_rx", DFERL, DFER, zpi + INS, TF, fer_name, FER_R)
+                _rounded_plate(mdl, "tim_rx", DALUL, DALU, zpi + INS + TF, TIM, "vacuum", FER_R)
+                alu_rx = _rounded_plate(mdl, "alu_rx", DALUL, DALU, zpi + INS + TF + TIM, TA, alu_name, FER_R)
 
         def make_loop(tagc, cx0, side, z):
             # 跑道形线圈本体（外侧留缺口），引线用薄铜排单独建后 unite，
@@ -1150,7 +1200,7 @@ def build_and_solve_dd_3d(q):
             "params": {"shape": "dd", "ddType": dd_type, "ddL": L, "ddW": W,
                        "N": N, "halfL": half_l, "halfR": half_r, "gap": GAP,
                        "tf": TF, "ta": TA, "Dfer": DFER, "DferL": DFERL,
-                       "Dalu": DALU, "DaluL": DALUL, "ferShape": FER_SHAPE, "ferMode": FER_MODE,
+                       "Dalu": DALU, "DaluL": DALUL, "ferShape": FER_SHAPE, "ferMode": FER_MODE, "ferR": FER_R,
                        "ins": INS, "tim": TIM,
                        "ferMu": FER_MU, "aluSig": ALU_SIG, "coilH": COIL_H,
                        "RB": rb, "pack": round(pack, 2), "loopW": round(wc, 2),

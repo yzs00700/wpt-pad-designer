@@ -156,14 +156,16 @@
   }
   function outlineForD(d, size) {
     if (plateShapeOf(d) === 'square') {
-      return roundRectPath(size, size, Math.min(size * 0.12, size / 2), 14);
+      var r = Math.min(Math.max(0, d.ferR || 0), size / 2);
+      return roundRectPath(size, size, r, 14);
     }
     return circlePoly(size / 2, 96);
   }
   function outlineInsetD(d, size, inset) {
     if (plateShapeOf(d) === 'square') {
       var s = Math.max(2, size - 2 * inset);
-      return roundRectPath(s, s, Math.min(s * 0.12, s / 2), 14);
+      var r = Math.min(Math.max(0, d.ferR || 0), s / 2);
+      return roundRectPath(s, s, r, 14);
     }
     return circlePoly(Math.max(0.5, size / 2 - inset), 96);
   }

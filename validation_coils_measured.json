@@ -43,7 +43,16 @@
         {"strands": 200, "strand_d_mm": 0.08, "copper_area_mm2": 1.005, "fit": "DCR 总长 80 mm 假设"},
         {"strands": 204, "strand_d_mm": 0.08, "copper_area_mm2": 1.025, "fit": "DCR 每根 80 mm 假设"}
       ],
-      "page_analytic": {"L_uH": 38.2, "deviation_pct": 21.8}
+      "page_analytic": {"L_uH": 38.2, "deviation_pct": 21.8},
+      "maxwell_3d": {
+        "mode": "air-core / single-side TX / GUI",
+        "copperEqD_mm": 1.14,
+        "lead_mm": 80,
+        "L_uH": 30.94,
+        "L_raw_uH": 34.19,
+        "coil_only_dev_pct": -1.4,
+        "raw_dev_pct": 9.0
+      }
     },
     {
       "id": "coil2",
@@ -84,7 +93,23 @@
         {"strands": 160, "strand_d_mm": 0.10, "copper_area_mm2": 1.257, "fit": "DCR 几乎精确；AC/DC 更接近"},
         {"strands": 250, "strand_d_mm": 0.08, "copper_area_mm2": 1.257, "fit": "DCR 同样精确，但与 AC/DC 略偏低"}
       ],
-      "page_analytic": {"L_uH": 41.8, "deviation_pct": 25.7}
+      "page_analytic": {"L_uH": 41.8, "deviation_pct": 25.7},
+      "maxwell_3d": {
+        "mode": "PC95 100x100x5 / single-side TX / GUI / R0",
+        "copperEqD_mm": 1.6,
+        "lead_mm": 181.7,
+        "L_uH": 29.05,
+        "L_raw_uH": 32.48,
+        "raw_dev_pct": -2.3
+      },
+      "maxwell_3d_R20": {
+        "mode": "PC95 100x100x5 / single-side TX / GUI / R20",
+        "copperEqD_mm": 1.14,
+        "lead_mm": 180,
+        "L_uH": 32.72,
+        "L_raw_uH": 34.39,
+        "raw_dev_pct": 3.5
+      }
     }
   ],
   "measured_differences": {

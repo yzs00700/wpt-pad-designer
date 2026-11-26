@@ -295,7 +295,7 @@
     }
     function padPlateSvg(size, cmX, cmY, attrs) {
       if (d.ferShape === 'square') {
-        return rectSvg(cmX, cmY, size, size, Math.min(size * 0.12, size / 2), attrs);
+        return rectSvg(cmX, cmY, size, size, Math.min(Math.max(0, d.ferR || 0), size / 2), attrs);
       }
       if (d.ferShape === 'round') {
         return '<circle cx="' + X(cmX).toFixed(1) + '" cy="' + Y(cmY).toFixed(1) + '" r="' + (size / 2 * sc).toFixed(1) + '" ' + attrs + '/>';
