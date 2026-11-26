@@ -1,7 +1,7 @@
 # WPT Pad Designer 项目状态审计
 
 > 审计日期：2026-11-26  
-> 代码基线：`02962ff` + 本次 Icepak 修复与文案更新（提交前）  
+> 代码基线：`02962ff` + 本轮 Icepak 修复、页面文案与状态审计（已提交为 `7fb92fa`）  
 > 判定口径：只有在本机 AEDT 2025 R2 端到端跑过，且有产物、日志或回归结果的项，才算“已验证”；静态检查、单次运行和“代码已写”都不算签核。
 
 ## 0. 一句话结论
@@ -124,7 +124,7 @@
 | 认证 | GitHub 用 `gh` keyring；Gitee 用 Windows Credential Manager 中的 `hello-yong` token |
 | 风险 | Gitee token 有有效期（约 7 天）；过期后需续期，否则 Gitee push 失败 |
 
-> 本次审计改动（Icepak 修复、页面文案、README、改进方案、状态文档）尚未提交；提交后需执行 `sync.ps1` 同步到两个远端。
+> 本次审计改动（Icepak 修复、页面文案、README、改进方案、状态文档）已提交为 `7fb92fa`，并已同步到 GitHub 与 Gitee；两端 `main` 均为 `7fb92fa`。
 
 ## 6. 复现 / 验收命令
 
