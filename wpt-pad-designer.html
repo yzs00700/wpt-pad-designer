@@ -119,8 +119,8 @@ h1:before{display:none}
   margin:15px 0 8px;padding:6px 9px 6px 8px;letter-spacing:.2px;line-height:1.2;
   background:linear-gradient(90deg,var(--panel2),transparent);border-radius:7px;
   border-bottom:1px solid var(--line)}
-.subhd i{width:7px;height:7px;border-radius:2px;background:var(--brand);flex:none;box-shadow:0 0 8px var(--glow)}
-.subno{font:600 9.5px/1 ui-monospace,Consolas,monospace;color:var(--brand2);
+.subhd i{width:2px;height:13px;border-radius:1px;background:var(--brand);flex:none;box-shadow:0 0 6px var(--glow)}
+.subno{font:700 10.5px/1 ui-monospace,Consolas,monospace;color:var(--brand2);
   background:transparent;border:0;border-radius:0;padding:0 2px;flex:none;letter-spacing:.2px;opacity:.9}
 .searchSwitch{display:flex;align-items:center;gap:5px;margin-left:auto;padding:2px 8px;flex:none;
   font-size:9.5px;color:var(--tx2);border:1px solid var(--line);border-radius:99px;background:var(--panel);cursor:pointer;white-space:nowrap}
@@ -524,7 +524,7 @@ body.simLocked .side{pointer-events:none}
         <path d="M16 11c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>
         <path d="M17.6 5.5l-5.2 8.3h4.1l-2.1 7.2 6.9-9.4h-4.1l2.4-6.1z" fill="currentColor"/>
       </svg><span>WPT·Pad</span></h1>
-      <div class="sub">WPT Pad Designer · 大功率无线充电线圈参数化设计器 · v0.3.3</div>
+      <div class="sub">WPT Pad Designer · 大功率无线充电线圈参数化设计器 · v0.3.4</div>
       <div class="brandtools">
         <div class="expandtools">
           <button id="expandAll" type="button" title="展开 / 收起全部">全部展开</button>
@@ -936,6 +936,16 @@ body.simLocked .side{pointer-events:none}
         <div class="grp"><label>最小匝间绝缘 mm</label><input type="number" id="turnIns" min="0" max="2" step="0.05" value="0.20"></div>
       </div>
       <label class="chk" style="margin-bottom:6px"><input type="checkbox" id="explicitTurns" checked> Maxwell逐匝几何</label>
+      <div class="grp" style="margin-top:8px">
+        <label>引出线长度 L（每根）mm</label>
+        <input type="number" id="leadLen" min="0" max="500" step="5" value="80">
+        <label style="margin-top:8px">出线方式</label>
+        <select id="leadExit">
+          <option value="center">中心后出线</option>
+          <option value="side">顶侧出线</option>
+        </select>
+      </div>
+      <div class="note" id="leadNote">引出线长度从线圈外缘到线头计；进入 3D 引线修正和报告。出线方式用于结构/报告；3D 当前按径向侧出线建模，中心轴向出线待后续接入。</div>
       <div class="note">自动股数按“系统电流 × 1.2 裕量 ÷ 目标电流密度”初选。2.0 A/mm² 为自然冷却保守筛查；强制风冷/间歇工况常用 3.5–4.5 A/mm²（如 1250×0.1 @ 3 kW 约 3.53 A/mm² RMS，含裕量 4.24）。最终仍须 Maxwell Rac、窗口、温升和供应商样线校核。</div>
 
     </section>
@@ -1235,7 +1245,7 @@ body.simLocked .side{pointer-events:none}
       <div class="note" id="benchNote" style="margin-top:6px"></div>
       <div class="subhd" style="margin-top:8px"><i></i><span>自建样品测试标准</span></div>
       <table class="tbl" id="sampleTbl"></table>
-      <div class="note" id="sampleNote" style="margin-top:6px">两组实测线圈作为自建样品基准：DCR 反推 Litz 约 130×0.1 / 160×0.1 mm；3D 单侧 TX 复核线圈本体偏差约 −1.4%，含引线约 −2.3%。仅作仿真可信度基准，不替代样机签收。</div>
+      <div class="note" id="sampleNote" style="margin-top:6px">两支线成品 OD 同为 1.65–1.8 mm，但 DCR 反推铜截面约 1.02 / 1.26 mm²；130×0.1 / 160×0.1 只是候选，同 OD 不等于同铜截面。若确认是同一根线，线圈2 DCR 应约 64 mΩ，而实测 51.94 mΩ（−19%），需复核长度、接触电阻或测量温度。3D 自感偏差 −1.4% / −2.3%。仅作仿真可信度基准，不替代样机签收。</div>
       <div class="subhd" style="margin-top:8px"><i></i><span>当前数据来源等级</span></div>
       <table class="tbl" id="credTbl"></table>
       <div class="note" id="credNote" style="margin-top:6px"></div>
@@ -3459,6 +3469,8 @@ function computeCore(inp){
   const copperEqD=Math.sqrt(4*Acu/Math.PI);
   const bundleFill=clamp(+inp.litzFill||0.55,0.35,0.80);
   const bundleOD=copperEqD/Math.sqrt(bundleFill);
+  const leadLen=clamp(+inp.leadLen||0,0,500);
+  const leadExit=inp.leadExit==='side'?'side':'center';
   const turnPitch=(shape==='rect'||shape==='sq')?Math.min((geomLout-geomLin)/2,(geomWout-geomWin)/2)/Math.max(N,1):(OD-ID)/2/Math.max(N,1);
   const litzFit=bundleOD<=turnPitch*1.05;
   /* 平均匝长：圆形/DD 沿用原保守经验式；方形/矩形按外/内矩形平均周长计算 */
@@ -3627,7 +3639,7 @@ function computeCore(inp){
     vdc,vbat,modIndex,rectType:inp.rectType||'full',chargeMode:inp.chargeMode||'cc',batteryCurrent,RdcLoad,rectRacFactor,IrxBoundary,requiredStrands,requiredCopperArea,minWindow,windowAvailable,systemWindowFeasible,
     vinRequired:det[topo].vin,vinAvailable,voltageMargin,systemCurrent,systemJ,systemFeasible,imaxCoil:maxCoilCurrent,
     ferName:FM.n,aluName:AM.n,ferTip:FM.tip,ferRho:FM.rho,aluRho:AM.rho,mu0:FM.mu,bs:FM.bs,aluSig:AM.sig,
-    mu,F,L:L*1e6,M:M*1e6,k,geomLout,geomWout,geomLin,geomWin,rectAspect,rectRatioL,perimFactor,Im,Idesign,I_MARGIN,Jtarget,Jactual,Vcoil,Cap,Acu,AcuMin,AcuEng,nStr,nStrAuto,nStrNeed,nStrEng,litzArrayInsufficient,litzD:dStr,litzTwist:twistFactor,litzFill:bundleFill,turnIns:+inp.turnIns||0.2,explicitTurns:!!inp.explicitTurns,bundleOD,copperEqD,turnPitch,litzFit,Rcu:Rcu*1000,Rdc:Rdc*1000,kRac,dStr,skin,nLayer,
+    mu,F,L:L*1e6,M:M*1e6,k,geomLout,geomWout,geomLin,geomWin,rectAspect,rectRatioL,perimFactor,Im,Idesign,I_MARGIN,Jtarget,Jactual,Vcoil,Cap,Acu,AcuMin,AcuEng,nStr,nStrAuto,nStrNeed,nStrEng,litzArrayInsufficient,litzD:dStr,litzTwist:twistFactor,litzFill:bundleFill,turnIns:+inp.turnIns||0.2,explicitTurns:!!inp.explicitTurns,leadLen,leadExit,bundleOD,copperEqD,turnPitch,litzFit,Rcu:Rcu*1000,Rdc:Rdc*1000,kRac,dStr,skin,nLayer,
     Pcu,Peddy,Pcore,Pplate,Bmax,satMargin,B200,B300,Aalu,Ains,AferArea,AaluArea,Afin,Aeff,finFactor,finH,nFin,finW,finP,etaFin,hEff,pitchK,amb,aluT,finT,coilT,dT,dTfin,Aneed,mDip,areaM2,rAvg,
     cool,fanQ,vAir,Afan,fan:inp.fan||'6015',
     Ploss,etaCoil,etaSys,checks,
@@ -3747,7 +3759,7 @@ function readInputs(){
   return {P:+$('pw').value,gap:+$('gap').value,freq:+$('freq').value,
     dx:+$('dx').value,dy:+$('dy').value,tilt:+$('tilt').value,app:$('app').value,
     tf:+$('tf').value,ta:+$('ta').value,finH:+$('fh').value,finW:+$('fw').value,finPitch:+$('fp').value,amb:+$('amb').value,tile:+$('ts').value,
-    gapTile:+$('gt').value,autoN:$('autoN').checked,N:+$('nt').value,litzN:+$('litzN').value,litzD:+$('litzD').value,litzTwist:+$('litzTwist').value,litzFill:+$('litzFill').value,turnIns:+$('turnIns').value,jTarget:+$('jTarget').value,explicitTurns:$('explicitTurns').checked,rectLout:+$('rectLout').value,rectWout:+$('rectWout').value,rectLin:+$('rectLin').value,rectWin:+$('rectWin').value,autoInner:$('autoInner').checked,autoInnerC:$('autoInnerC').checked,rectSquare:$('rectSquare').checked,shape:state.shape,side:state.side,ddType:state.ddType,
+    gapTile:+$('gt').value,autoN:$('autoN').checked,N:+$('nt').value,litzN:+$('litzN').value,litzD:+$('litzD').value,litzTwist:+$('litzTwist').value,litzFill:+$('litzFill').value,turnIns:+$('turnIns').value,jTarget:+$('jTarget').value,explicitTurns:$('explicitTurns').checked,leadLen:+$('leadLen').value,leadExit:$('leadExit').value,rectLout:+$('rectLout').value,rectWout:+$('rectWout').value,rectLin:+$('rectLin').value,rectWin:+$('rectWin').value,autoInner:$('autoInner').checked,autoInnerC:$('autoInnerC').checked,rectSquare:$('rectSquare').checked,shape:state.shape,side:state.side,ddType:state.ddType,
     ddL:state.ddL,ddW:state.ddW,ddLock:state.ddLock,ddManual:state.ddManual,circLock:$('circLock').checked,circOD:+$('circOD').value,circID:+$('circID').value,topo:state.topo,
     insMat:$('insMat').value,insT:+$('insT').value,timMat:$('timMat').value,timT:+$('timT').value,
     insOn:$('insOn').checked,timOn:$('timOn').checked,
@@ -3840,6 +3852,7 @@ function update(preserveResults){
     row('线圈电压',d.Vcoil.toFixed(0)+' V')+
     row('补偿电容',d.Cap.toFixed(1)+' nF')+
     row('当前利兹线候选',d.nStr+' × '+d.litzD.toFixed(2)+' mm'+(inp.litzN>0?'（手动）':'（解析初选）'))+
+    row('引出线',d.leadLen+' mm · '+(d.leadExit==='side'?'顶侧出线':'中心后出线'))+
     row('候选铜截面积',d.Acu.toFixed(2)+' mm²')+
     row('设计电流（含20%裕量）',d.Idesign.toFixed(1)+' A RMS')+
     row('候选电流密度',d.Jactual.toFixed(2)+' A/mm²（解析初选目标 '+d.Jtarget.toFixed(1)+'）')+
@@ -3971,8 +3984,8 @@ function update(preserveResults){
 
   {
     const rows=[
-      ['线圈 1','无磁板<br>Ø107 / Ø30 · 23 匝 · Litz≈130×0.1','31.368 µH<br>86.02 mΩ · Q168','30.94 µH（线圈本体）','−1.4%'],
-      ['线圈 2','PC95 100×100×5<br>Ø98 / Ø48 · 15 匝 · Litz≈160×0.1','33.241 µH<br>51.94 mΩ · Q250','≈32.5 µH（含引线）','−2.3%']
+      ['线圈 1','无磁板<br>Ø107 / Ø30 · 23 匝<br>成品 OD 1.65–1.8 mm · 股数候选 130×0.1','31.368 µH<br>86.02 mΩ · Q168','30.94 µH（线圈本体）','−1.4%'],
+      ['线圈 2','PC95 100×100×5<br>Ø98 / Ø48 · 15 匝<br>成品 OD 1.65–1.8 mm · 股数候选 160×0.1','33.241 µH<br>51.94 mΩ · Q250','≈32.5 µH（含引线）','−2.3%']
     ];
     $('sampleTbl').innerHTML='<tr><th>样品</th><th>结构 / 线材</th><th>实测 Ls / DCR / Q</th><th>WPT.pad 3D</th><th>偏差</th></tr>'+
       rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="tag ok">${r[4]}</span></td></tr>`).join('');
@@ -4031,6 +4044,7 @@ function update(preserveResults){
     `<b>磁板材料</b>${d.ferName} · μr ${d.mu0} · Bs ${d.bs} T；${d.ferTip}。${d.ferMode==='mono'?'整装单块':`${d.nTileX}×${d.nTileZ} 拼装`}、${d.ferShape==='round'?'圆形':`方形 R${d.ferR.toFixed(1)} mm`}，等效 μr ${d.mu.toFixed(0)}。`+
     `<b>铝板材质</b>${d.aluName} · 电导率 ${(d.aluSig/1e7).toFixed(2)}×10⁷ S/m（影响涡流屏蔽与散热）。`+
     `<b>利兹线候选</b>当前 ${d.nStr}×${d.litzD.toFixed(2)} mm，铜截面 ${d.Acu.toFixed(2)} mm²；按 ${d.Idesign.toFixed(1)} A RMS 设计电流时电流密度 ${d.Jactual.toFixed(2)} A/mm²。该值只是Maxwell扫描起始候选，不是最终推荐；最终比较StrandedLossAC、Rac、绕组窗口和热结果。估算成品外径 ${d.bundleOD.toFixed(2)} mm（2D/3D/示意图统一按此线径绘制）、单匝节距 ${d.turnPitch.toFixed(2)} mm，${d.litzFit?'当前窗口可布置':'当前窗口不足，需多层/并绕或扩大绕组窗口'}。`+
+    `<b>引出线</b>每根 ${d.leadLen} mm · ${d.leadExit==='side'?'顶侧出线':'中心后出线'}；长度进入 3D 引线修正，出线方式用于结构/报告。`+
     `<b>走线</b>内圈回线走线圈<b style="display:inline">上表面</b>（远离磁板一侧），加 0.2 mm 聚酰亚胺绝缘。不要夹在磁板和线圈之间——若开 4 mm 径向通槽，等效 μr 会掉到约 40，槽下铝板形成漏磁热点。`+
     `<b>绝缘层</b>线圈→磁板 ${d.ins.toFixed(2)} mm ${d.insName}（k ${d.insK} W/mK）；磁板→铝板 ${d.tim.toFixed(2)} mm ${d.timName}（k ${d.timK} W/mK），必须填满气隙（空气是最大热阻）；叠层热阻 ${d.Rstack.toFixed(3)} K/W，对应温降 ${d.stackDT.toFixed(1)} K；外壳顶面 ${d.shell.toFixed(1)} mm ${d.shellName}（非金属）。`+
     `<b>${d.ferMode==='mono'?'整装磁板':'拼接磁板'}</b>${d.ferMode==='mono'
@@ -4226,6 +4240,8 @@ $('ferR').addEventListener('input',()=>{ syncFerUI(); update(); });
 $('litzN').addEventListener('change',update);
 ['litzD','litzTwist','litzFill','turnIns','jTarget'].forEach(id=>$(id).addEventListener('input',update));
 $('explicitTurns').addEventListener('change',update);
+$('leadLen').addEventListener('input',update);
+$('leadExit').addEventListener('change',update);
 ['vdc','vbat','modIndex','imaxCoil','circOD','circID','rectLout','rectWout','rectLin','rectWin'].forEach(id=>$(id).addEventListener('input',e=>{
   if(state.shape==='rect'&&$('rectSquare').checked&&e.target.id==='rectLout')$('rectWout').value=e.target.value;
   if(state.shape==='rect'&&$('rectSquare').checked&&e.target.id==='rectWout')$('rectLout').value=e.target.value;
@@ -4526,7 +4542,7 @@ function solvePayload(d,itx,irx,ptx,prx,extra){
   return Object.assign({OD:d.OD,ID:d.ID,N:d.N,gap:d.gap,freq:d.freq,tf:d.tf,ta:d.ta,P:d.P,
     Dfer:d.Dfer,DferL:d.DferL,Dalu:d.Dalu,DaluL:d.DaluL,ferMu:d.mu0,ferName:d.ferName,shape:d.shape,ferShape:d.ferShape,ferMode:d.ferMode,ferR:d.ferR,
     tile:d.tile,gapTile:d.gapTile,coilH:d.coilH,aluSig:d.aluSig,ins:Math.max(0.01,d.ins),tim:Math.max(0.01,d.tim),dx:d.dx,dy:d.dy,delta:d.delta,
-    litzN:d.nStr,litzD:d.litzD,litzTwist:d.litzTwist,litzFill:d.litzFill,turnIns:d.turnIns,explicitTurns:d.explicitTurns,
+    litzN:d.nStr,litzD:d.litzD,litzTwist:d.litzTwist,litzFill:d.litzFill,turnIns:d.turnIns,explicitTurns:d.explicitTurns,lead_mm:d.leadLen,leadExit:d.leadExit,
     I_tx:itx,I_rx:irx,phase_tx:ptx,phase_rx:prx,aluName:d.aluName,L0:d.L,M0:d.M,k0:d.k,
     projectName:($('projName').value||'WPT').trim()},extra||{});
 }
@@ -4802,7 +4818,7 @@ async function startSolve3d(){
         geomLout:d.geomLout,geomWout:d.geomWout,geomLin:d.geomLin,geomWin:d.geomWin,
         N:d.N,gap:d.gap,freq:d.freq,tf:d.tf,ta:d.ta,Dfer:d.Dfer,DferL:d.DferL,Dalu:d.Dalu,DaluL:d.DaluL,ferShape:d.ferShape,ferMode:d.ferMode,ferR:d.ferR,
         ins:Math.max(0.01,d.ins),tim:Math.max(0.01,d.tim),ferMu:d.mu0,aluSig:d.aluSig,coilH:d.coilH,tile:d.tile,gapTile:d.gapTile,
-        copperEqD:d.copperEqD,bundleOD:d.bundleOD})});
+        copperEqD:d.copperEqD,bundleOD:d.bundleOD,lead_mm:d.leadLen,leadExit:d.leadExit})});
     const j=await r.json();
     if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
     job3d=j.id;
@@ -4998,6 +5014,7 @@ function applyInput(inp){
   $('litzN').value=inp.litzN==null?0:inp.litzN; $('litzD').value=inp.litzD==null?0.1:inp.litzD; $('litzTwist').value=inp.litzTwist==null?1.05:inp.litzTwist;
   $('jTarget').value=inp.jTarget==null?2.0:inp.jTarget;
   $('litzFill').value=inp.litzFill==null?0.55:inp.litzFill; $('turnIns').value=inp.turnIns==null?0.2:inp.turnIns; $('explicitTurns').checked=inp.explicitTurns!==false;
+  $('leadLen').value=inp.leadLen==null?80:inp.leadLen; $('leadExit').value=inp.leadExit||'center';
   $('ferMat').value=inp.ferMat; $('aluMat').value=inp.aluMat;
   state.ferMode=inp.ferMode==='mono'?'mono':'tiled';
   state.ferShape=inp.ferShape==='square'?'square':(inp.ferShape==='round'?'round':((inp.shape||'circ')==='circ'?'round':'square'));
@@ -5167,7 +5184,7 @@ function reportHTML(d,fem,fem3d,audit){
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin:3mm 0}.kpi{padding:2.5mm;border:1px solid #d8e0e7;background:#fbfcfd}.kpi b{display:block;font:700 14pt Consolas,monospace;color:#10231b}.kpi span{font-size:7.5pt;color:#5d6b79}
   table{width:100%;border-collapse:collapse;font-size:8.5pt}th,td{text-align:left;padding:1.5mm 2mm;border-bottom:1px solid #dce3e9;vertical-align:top}th{background:#edf3f0;color:#30453b}.num{font-family:Consolas,monospace;white-space:nowrap}.small{font-size:7.7pt;color:#596777}.pics{display:grid;grid-template-columns:1fr 1fr;gap:2mm}.pics img{width:100%;height:68mm;object-fit:contain;border:1px solid #d8e0e7}.footer{margin-top:4mm;border-top:1px solid #d8e0e7;padding-top:2mm;font-size:7.5pt;color:#657386}
   </style></head><body>
-  <h1>${esc(name)} · 无线充电耦合器设计评审</h1><div class="meta">WPT·Pad v0.3.3 · ${now} · AEDT ${audit?'2025 R2严格网格':(fem3d?'2025 R2 3D':'未执行严格签核')} · 单位 mm / kHz / µH / A / W</div>
+  <h1>${esc(name)} · 无线充电耦合器设计评审</h1><div class="meta">WPT·Pad v0.3.4 · ${now} · AEDT ${audit?'2025 R2严格网格':(fem3d?'2025 R2 3D':'未执行严格签核')} · 单位 mm / kHz / µH / A / W</div>
   <div class="status ${!d.systemFeasible?'bad':(audit?'ok':(fem3d?'warn':'warn'))}"><b>${!d.systemFeasible?'结论：当前系统边界不可实现，禁止按当前工况签核。':(audit?'结论：Maxwell严格网格签核完成，仍需样机/热验证。':(fem3d?'结论：已完成 Maxwell 3D 电磁校核；工作点损耗、Icepak 与样机尚未闭环。':'结论：设计初选，尚未完成Maxwell工程签核。'))}</b><br>
   输出${d.P} W，电池${d.vbat.toFixed(0)} V，母线${d.vdc.toFixed(0)} V；TX/RX电流${d.workPoint.iTx.toFixed(1)}/${d.workPoint.iRx.toFixed(1)} A RMS，所需基波${d.vinRequired.toFixed(0)} V，可用${d.vinAvailable.toFixed(0)} V；${!d.systemFeasible?'母线电压或绕组窗口不足。':'输入边界通过初步可行性检查。'}</div>
   <div class="kpis">${kpi(d.P,'W','输出目标')}${kpi(d.vbat.toFixed(0),'V','电池')}${kpi(d.systemJ.toFixed(2),'A/mm²','系统电流密度')}${kpi(d.nStr,'股','Litz候选')}</div>
@@ -5312,7 +5329,7 @@ ul.limits{margin:2mm 0 0 5mm;padding:0;font-size:8.8pt;color:#5b6877;line-height
     <h1>${esc(name)}</h1>
     <div class="csub">大功率无线充电线圈 · 磁板 · 铝板 设计计算报告</div>
     <div class="cgrid">
-      <div class="cbox"><div class="k">项目 / 版本</div><div class="v">${esc(name)} · v0.3.3</div></div>
+      <div class="cbox"><div class="k">项目 / 版本</div><div class="v">${esc(name)} · v0.3.4</div></div>
       <div class="cbox"><div class="k">生成时间</div><div class="v">${now}</div></div>
       <div class="cbox"><div class="k">额定功率 / 频率</div><div class="v">${d.P} W / ${(d.freq/1000).toFixed(0)} kHz</div></div>
       <div class="cbox"><div class="k">耦合系数 / 效率</div><div class="v">k ${vK.toFixed(3)} / ${d.etaCoil.toFixed(1)}%</div></div>
@@ -5355,6 +5372,7 @@ ${p4('接收端倾斜',d.tilt.toFixed(1)+'°','倾斜等效间隙',d.gEff.toFixe
 ${p4('合偏心 δ',d.delta.toFixed(1)+' mm','偏移 k 衰减',(d.misDecay*100).toFixed(0)+' %')}
 ${p4('外径 / 内径',d.OD+' / '+d.ID+' mm','匝数',d.N+' 匝')}
 ${p4('利兹线候选',d.nStr+' × '+d.litzD.toFixed(2)+' mm（待Maxwell扫描）','铜截面积',d.Acu.toFixed(2)+' mm²')}
+${p4('引出线长度',d.leadLen+' mm/根','出线方式',d.leadExit==='side'?'顶侧出线':'中心后出线')}
 ${p4('设计电流 / 电流密度',d.Idesign.toFixed(1)+' A / '+d.Jactual.toFixed(2)+' A/mm²','理论最低股数',d.nStrNeed+' 股（仅计算下限）')}
 ${p4('束线外径 / 单匝节距',d.bundleOD.toFixed(1)+' / '+d.turnPitch.toFixed(1)+' mm','绕组可布置性',d.litzFit?'通过':'需多层/并绕/扩大窗口')}
 ${p4('线长',d.lenWire.toFixed(2)+' m','直流电阻 Rdc',d.Rdc.toFixed(1)+' mΩ')}
