@@ -4,6 +4,8 @@
 
 仓库地址：[GitHub](https://github.com/yzs00700/wpt-pad-designer) · [Gitee 镜像](https://gitee.com/hello-yong/wpt-pad-designer)
 
+项目完成度与未测试/未开发清单：[PROJECT_STATUS.md](PROJECT_STATUS.md)
+
 ![设计器界面](docs/preview.jpg)
 
 > 这是一个工程筛查与复核工具，不是第三方认证或最终签核。所有解析结果、2D/3D 有限元结果都应结合具体产品工况由工程师确认。
@@ -103,7 +105,8 @@ Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显
 | `wpt_3d_worker.py` | 3D 求解子进程 |
 | `wpt_regression.py` | 解析 vs 2D FEM 基线回归（`--rerun` 可重跑） |
 | `wpt_3d_regression.py` | 3D 圆形/DD/方形/矩形回归（`--check` / `--run`） |
-| `wpt_icepak_thermal.py` | Icepak 热筛查实验脚本（尚未纳入签核） |
+| `wpt_icepak_thermal.py` | Icepak 单侧半模型热筛查脚本（已跑通，未纳入签核） |
+| `PROJECT_STATUS.md` | 完成度审计：已验证 / 未充分测试 / 未开发清单 |
 | `WPT_Designer_改进方案.md` | 设计取舍、建模口径与端到端实测记录 |
 | `Litz_Maxwell_验证计划.md` | Litz / Maxwell 验证计划 |
 
@@ -119,6 +122,7 @@ Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显
 | 3D 单侧 RX | L 33.13 µH；M/k 为空（单侧模型） |
 | 2D vs 3D | L +3.6%、M −2.0%、k −5.4%（轴对称近似的已知偏差方向） |
 | PDF | A4 14 页，附 A/附 B 各 4 张原图，无空白页；2D-only 报告明确标注未执行 3D |
+| Icepak 单侧筛查 | 低/高损耗 33.5 / 35.7 °C（TX 单侧、半模型损耗、HTC 28.3 W/m²K；非签核） |
 | 中止/关页 | 2D worker + AEDT 在约 1–3 s 内清理，桥接保持可用 |
 
 回归检查：
@@ -133,7 +137,7 @@ Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显
 - **3D 磁板按整块建模**，未建拼缝/分段，L 与 k 相对实际拼块磁板偏高。
 - **DDQ / BP 的 Q 线圈与多线圈 3D 尚未实现**；页面会明确提示并拒绝把 2D 结果当作 3D。
 - **3D 参数扫描 UI 尚未实现**，目前是单点复核；批量扫描用 `wpt_3d_sweep.py`。
-- **Icepak 温升未纳入签核**：页面温度仍为解析筛查值，不冒充 Icepak 结果。
+- **Icepak 仅单侧半模型筛查**：求解器已修复并跑通（低/高损耗 33.5/35.7 °C），但未含 RX、外壳/散热筋、辐射与温度相关材料，不能作为热签核；页面温度仍为解析筛查值。
 - 2D 为轴对称单匝环等效，不含径向拼缝、实体绕组端部和引线；与 3D 的差异见上表。
 - 3D 求解时间约 1–6 分钟，取决于网格、匝数与机器性能。
 

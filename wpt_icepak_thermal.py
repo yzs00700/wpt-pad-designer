@@ -85,23 +85,40 @@ def solve_case(label, core_total_w):
         mdl.subtract(coil_outer, coil_hole, keep_originals=False)
         coil = mdl["Coil"]
 
+        # 关键：HTC 必须挂在机柜（Region）外表面，代表铝板/散热筋向环境散热。
+        # 给固体表面挂 HTC 只是“固体↔机柜内空气”的换热，封闭机柜没有热沉，
+        # 热量出不去，温度会一路爬到上千度。
+        # 底面留 2 mm 薄空气隙：完全重合会被 Icepak 当成绝热接触，
+        # 只有侧面散热；2 mm 空气隙热阻可忽略，但能让底面参与导热。
+        ipk.modeler.change_region_padding(
+            ["50mm", "50mm", "50mm", "50mm", "50mm", "2mm"],
+            ["Absolute Offset"] * 6,
+            direction=["+X", "-X", "+Y", "-Y", "+Z", "-Z"])
+
         ipk.assign_solid_block(coil.name, "%gW" % LOSSES["coil_tx_W"], boundary_name="CoilLoss")
         ipk.assign_solid_block(ferrite.name, "%gW" % (core_total_w / 2.0), boundary_name="FerriteLoss")
         ipk.assign_solid_block(alu.name, "%gW" % (LOSSES["aluminum_both_W"] / 2.0), boundary_name="AluminumLoss")
         ipk.assign_solid_block(tim.name, "0W", boundary_name="TIMPassive")
         ipk.assign_solid_block(pi.name, "0W", boundary_name="PIPassive")
 
-        exposed_faces = []
-        for face in alu.faces:
+        # 机柜底面作为唯一热沉：铝板底面与其接触，HTC 代表散热筋折算后的
+        # 自然对流+辐射等效换热系数。不要给铝板表面再挂 HTC。
+        region = ipk.modeler["Region"]
+        bb = list(region.bounding_box)
+        zmin = min(bb[2], bb[5])
+        cabinet_bottom = None
+        for face in region.faces:
             try:
-                if face.center[2] < GEOM["alu_t"] - 0.05:
-                    exposed_faces.append(face.id)
+                if abs(face.center[2] - zmin) < 1e-3:
+                    cabinet_bottom = face
+                    break
             except Exception:
                 pass
-        if exposed_faces:
-            ipk.assign_stationary_wall_with_htc(exposed_faces, htc="%gw_per_m2kel" % HTC,
-                                                 ref_temperature="%gcel" % AMBIENT_C,
-                                                 name="AluminumExternalHTC")
+        if cabinet_bottom is None:
+            raise RuntimeError("未找到机柜底面，无法施加外部 HTC")
+        ipk.assign_stationary_wall_with_htc(
+            [cabinet_bottom.id], htc="%gw_per_m2kel" % HTC,
+            ref_temperature="%gcel" % AMBIENT_C, name="CabinetBottomHTC")
 
         setup = ipk.create_setup("SteadyState", setup_type=12)  # SteadyTemperatureOnly
         setup.props["Convergence Criteria - Max Iterations"] = 40
@@ -119,9 +136,13 @@ def solve_case(label, core_total_w):
             raise RuntimeError("Icepak solve returned False: %s" % detail)
 
         sweep = ipk.existing_analysis_sweeps[0]
+        setup_name = sweep.split(" : ")[0]
         def tmax(obj):
-            return ipk.post.get_scalar_field_value("Temperature", "Maximum", sweep,
-                                                   object_name=obj.name, object_type="volume")
+            # Icepak 原生取温接口（内部量名 Temp）；不要用 get_scalar_field_value
+            # 的 "Temperature"+volume，该路径会回退到 Stack 并返回无效值。
+            _pos, val = ipk.post.get_temperature_extremum(
+                assignment=obj.name, max_min="Max", location="Volume", setup=setup_name)
+            return val
         result = {
             "case": label, "ambient_C": AMBIENT_C, "base_htc_W_m2K": BASE_HTC,
             "area_factor": AREA_FACTOR, "effective_htc_W_m2K": HTC,
@@ -130,6 +151,11 @@ def solve_case(label, core_total_w):
             "coil_max_C": tmax(coil), "ferrite_max_C": tmax(ferrite),
             "aluminum_max_C": tmax(alu), "project": project,
         }
+        hottest = max(result["coil_max_C"], result["ferrite_max_C"], result["aluminum_max_C"])
+        result["hottest_C"] = hottest
+        result["plausible"] = bool(AMBIENT_C - 5 <= hottest <= 200)
+        if not result["plausible"]:
+            result["warning"] = "温度超出合理筛查范围，HTC/边界仍未生效，不得作为热结论"
         ipk.save_project()
         return result
     finally:

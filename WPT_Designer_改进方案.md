@@ -227,7 +227,7 @@
 - **Wheeler 周长修正**：新增 `perimFactor = 实际平均周长 / 等效圆平均周长`（clamp 1–1.6），不再只用面积等效圆。方形 300/180 得 1.273、矩形 400×300/240×160 得 1.291；解析 L 提升至方形 162.61 µH、矩形 198.99 µH。
 - **候选搜索**：`circ/sq/rect/dd` 分别生成真实几何；方形锁定 `Lout=Wout`、`Lin=Win`；矩形按当前长宽比缩放；DD 按 `ddType` 比例生成。结果表列改为“外形 / 内形 mm”，不再只显示 OD/ID。
 - **候选锁定与复核**：应用后写入 `state.candLock` 并显示 `#geomLockNote`；逐项复核 `shape/OD/ID/N/tf/tile/topo/litzN` 及方形/矩形边长、DD 长宽，任何一个不一致即拒绝应用并提示。非签核候选可仅作“几何复现”，但显示橙色警告。修改输入、形状或拓扑会自动解除锁定标记。实测方形候选 □650/□390、16 匝、tf 3、tile 200、Litz 3000、S-LCC 全部复现；DD 候选 738×410、20 匝复现。
-- **PDF 简洁版**：形状标签与结构行不再统一写“圆形”；方形/矩形输出实际外/内边长；磁板/铝板不再用 `Ø`；Litz 窗口显示需求/可用；删除硬编码“12 匝”；新增「2b. Maxwell 3D 校核」表、数据来源行和 Icepak 未通过说明。
+- **PDF 简洁版**：形状标签与结构行不再统一写“圆形”；方形/矩形输出实际外/内边长；磁板/铝板不再用 `Ø`；Litz 窗口显示需求/可用；删除硬编码“12 匝”；新增「2b. Maxwell 3D 校核」表、数据来源行和 Icepak 单侧筛查说明。
 - **方形/矩形 Maxwell 3D**：`wpt_bridge_3d.py` 新增 `build_and_solve_rect_3d()`：单个等效 N 匝矩形实体绕组（四条铜排 + 两侧薄铜排端子），PI/磁板/导热层/铝板按矩形板建模，磁板按整块、不建拼缝；桥接、worker 与前端 payload 支持 `geomLout/geomWout/geomLin/geomWin`。
   - 方形 300×300 / 180×180、12 匝、tf 3、tile 200、gap 30：`L_raw 178.66 µH / M 126.65 µH / k_raw 0.7089`；扣外部引线 10.24 µH 后 `L 168.42 µH / k 0.752`，41.3 s。
   - 矩形 400×300 / 240×160、同条件：`L_raw 211.8 µH / M 159.43 µH / k_raw 0.7527`；扣引线 10.24 µH 后 `L 201.56 µH / k 0.791`，48.9 s。
@@ -235,13 +235,13 @@
 - **回归**：新增 `validation_3d_sq.json`、`validation_3d_rect.json`；`wpt_3d_regression.py` 的 `CASES`、`--run` 与 `--check` 已覆盖 `sq/rect`，对比容差为 L ±15%、k ±0.08（仅与解析筛查基线对比）。`--check` 全部通过并写入 `regression_3d_report.md`。
 - **限制**：3D 磁板按整块，未建拼缝，L/k 相对实际拼块磁板会偏高；DDQ/BP 多线圈 3D 仍未实现；页面 2D 签核按钮对方形/矩形明确拒绝并指向「3D 校核」。
 
-### 2A.14 Icepak 温升状态（未签核）
+### 2A.14 Icepak 温升状态（单侧半模型筛查已跑通，未签核）
 
-- `SetupIcepak` 可以创建，但 `analyze` 仍报 `Failed to run solver` / `Simulation completed with execution error on server: Local Machine.`。
-- 最小模型（40×40×3 mm 铝块 + 1 W + 对流换热系数）同样失败，说明不是复杂叠层模型单点导致。
-- `ansysli_util -checkexists` 对 `icepak`、`icepak_solve`、`icepak_level1..3` 均返回 `COULD NOT BE FOUND`；但同一工具对 `maxwell` 也返回 `COULD NOT BE FOUND`，而 Maxwell 2D/3D 实际可解。因此该探测不能单独作为“许可证缺失”的结论。
-- 新增 `validation_icepak_license.json` 记录特征探测、最小模型失败与上述不确定性；页面与 PDF 只写“Icepak 求解失败（Failed to run solver），无温度签核值”，温度继续标注为解析筛查 / 非 Icepak。
-- 待办：区分许可证、机柜边界与模型设置三类原因，取得有效 Icepak 结果前不做热签核。
+- 2026-11-26 修复：早期 `Failed to run solver` 的根因是 Fluent/Icepak 引擎 OpenSSL DLL 缺失，不是许可证拒绝。把 `libssl-3-x64.dll` / `libcrypto-3-x64.dll` 从 `...\fluent\ntbin\win64` 复制到 `...\fluent\fluent25.2.0\cortex\win64` 后，最小探针和完整热模型均可求解。
+- 求解器能跑不等于温度正确。第一版全模型把 HTC 挂在铝板固体表面，Icepak 将其解释为“固体↔机柜内空气”的换热；封闭机柜没有热沉，热量出不去，温度爬到 1548 °C。最小 1 W 铝块试验同样得到 1701–4727 °C，确认是边界类型问题。
+- 正确做法：HTC 必须挂在**机柜（Region）外表面**，代表铝板/散热筋向环境散热；铝板与机柜底面之间保留 2 mm 薄空气隙，避免完全重合被当成绝热接触。最小模型 1 W / 10 W/m²K / 40×40 mm 底面得到 87.7 °C，与解析 87.5 °C 一致，边界路径验证通过。
+- 全模型（TX 单侧，铝板/磁板取半模型损耗，HTC 28.3 W/m²K）结果：低损耗 5.46 W → 线圈/磁板/铝板最高 33.5 °C；高损耗 6.86 W → 35.7 °C。结果已写入 `validation_icepak_thermal_low.json` / `validation_icepak_thermal_high.json`，并带 `plausible` 合理性标记。
+- 仍不是热签核：模型未含 RX 线圈、外壳、散热筋实体、辐射、温度相关材料（PC95 B-P、铜/铝电阻率）、瞬态与样机标定；页面温度主值仍为解析筛查。下一步是把 Icepak 扩展到 TX+RX 全模型并做样机温升对标，取得偏差包络后才可讨论签核。
 
 ---
 
@@ -426,8 +426,8 @@ Peddy = P * 0.02613 * f(tf) * f(gap) * f(tile) * f(material) * f(offset)
 - [x] 3D 默认立体视角约 1.22× 缩放，下方 2D 视图上移，3D 舞台上下空白收紧。
 - [x] 仿真态 9 根 TX → RX 带箭头波束；完成后右侧「仿真完成」徽标。
 - [x] 2D 轴截面充电箭头与 3D 充电箭头方向一致（均为 TX→RX 向上）。
-- [ ] 4K/高 DPI 屏幕下标注不重叠（建议补充）。
-- [ ] WebGL 不可用时显示降级提示（当前未实现，建议后续版本加）。
+- [ ] 4K/高 DPI 屏幕下标注不重叠（布局按 DPR 独立，未做 4K 实机目视复核）。
+- [x] WebGL 不可用时显示降级提示（已实现并用 headless Edge `--disable-webgl` 运行验证）。
 
 ### 5.2 数值
 
@@ -443,7 +443,7 @@ Peddy = P * 0.02613 * f(tf) * f(gap) * f(tile) * f(material) * f(offset)
 - [x] 候选搜索按 `circ/sq/rect/dd` 生成真实几何；应用后锁定并逐项复核，不一致拒绝。
 - [x] PDF 简洁版：方形/矩形几何、磁板/铝板尺寸、Litz 窗口、3D 表、数据来源与 Icepak 口径。
 - [ ] 方形/矩形 3D 拼块磁板与拼缝影响（当前磁板按整块，L/k 偏高）。
-- [ ] Icepak 有效温升签核（当前 `Failed to run solver`，仅有解析筛查）。
+- [x] Icepak 单侧半模型筛查跑通（低/高损耗 33.5/35.7 °C）；完整 TX+RX 热签核仍未完成。
 - [x] 3D 任务中止（terminate worker 子进程），求解期间桥接 HTTP 仍可响应。
 - [ ] DDQ/BP 的 Q 线圈 / 内外环 3D 模型。
 - [ ] 页面内 3D 参数扫描 UI（当前为脚本）。
@@ -524,7 +524,8 @@ Peddy = P * 0.02613 * f(tf) * f(gap) * f(tile) * f(material) * f(offset)
 | `validation_3d_sq_auto13.json` | 页面 3D 方形 300×300 / 自动内窗 102.8、13 匝结果（L 128.51 µH / k 0.7763） |
 | `validation_3d_rect.json` | 3D 矩形 400×300/240×160、12 匝结果（L 201.56 µH / k 0.791） |
 | `validation_3d_rect_auto14.json` | 页面 3D 矩形 400×300 / 自动内窗 187.6×87.6、14 匝结果（L 200.63 µH / k 0.8044） |
-| `validation_icepak_license.json` | Icepak 特征探测、最小模型失败与“不能单独判定许可证”说明 |
+| `validation_icepak_license.json` | Icepak 特征探测、最小模型失败与“不能单独判定许可证”说明（历史） |
+| `validation_icepak_thermal_low.json` / `_high.json` | Icepak 单侧半模型热筛查：低/高损耗 33.5/35.7 °C，含 `plausible` 合理性标记 |
 | `wpt_regression.py` | 解析/2D FEM 4 组基线回归测试（`--rerun` 可重跑） |
 | `regression_report.md` | 2D 回归测试报告（当前全部通过） |
 | `wpt_sweep.py` | 2D FEM 参数扫描（间隙/磁板厚度等，输出 JSON） |
@@ -612,7 +613,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 'E:\Personal\Documents\Trae-
 | 矩形 | 400×300 / 187.6×87.6（自动），14 匝 | 200.63 µH | 161.39 µH | 0.8044 | 45.3 s | `validation_3d_rect_auto14.json` |
 
 - 3D 均为单个等效 N 匝矩形实体绕组（非逐匝螺旋），磁板/铝板按整块矩形，拼缝未建模；引线按 N² 修正。
-- PDF 简洁版实测包含：`2b. Maxwell 3D 校核`（L/M/k/引线修正/耗时/口径）、`3D 结果按 方形/矩形 实际几何求解，未使用圆形等效`、`内窗自动` 与实际内窗尺寸、`Icepak 热求解未通过验证（Failed to run solver），不出温度签核值`、`数据来源：解析初选 + 未执行2D + Maxwell 3D + Icepak未通过验证`。
+- PDF 简洁版实测包含：`2b. Maxwell 3D 校核`（L/M/k/引线修正/耗时/口径）、`3D 结果按 方形/矩形 实际几何求解，未使用圆形等效`、`内窗自动` 与实际内窗尺寸、`Icepak 简化单侧稳态筛查已跑通（低/高损耗 33.5/35.7 °C，半模型损耗），仍非热签核`、`数据来源：解析初选 + 未执行2D + Maxwell 3D + Icepak简化单侧筛查（非签核）`。
 - 报告中的 Litz 行显示“束径 7.39 mm（2D/3D/示意图线径）”与“13/14 匝 × (7.39+0.20) mm = 98.41/106.0 mm / 可用 98.61/106.2 mm”。
 
 ### 8.7 本轮修复
@@ -660,7 +661,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 'E:\Personal\Documents\Trae-
 - [x] 方形 / 矩形页面 3D 真模型完成，并导出 PDF 核对 2b 表、数据来源、Icepak 文案、自动内窗与单位。
 - [ ] 3D 扫描 UI（仍为脚本）。
 - [ ] DDQ/BP 的 Q 线圈 / 内外环 / 多线圈 3D。
-- [ ] Icepak 有效温升（求解仍报 Failed to run solver）。
+- [x] Icepak 单侧半模型筛查跑通（33.5/35.7 °C）；完整 TX+RX/外壳/散热筋热签核仍未完成。
 
 ### 8.10 单侧线圈 / Q 值 / 螺旋示意 / 功率筛选 / 3D 出图（本轮）
 
@@ -715,4 +716,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File 'E:\Personal\Documents\Trae-
 
 ## 9. 一句话结论
 
-本次已经把“看不清结构”的 3D 分解图改成**可读的装配态层序视图**，把 2D 改成**真实毫米比例**，并完成圆形 / 方形 / 矩形 / DD 双 D 的 **Maxwell 3D 真模型 + 页面后台校核 + 3D 回归**。同时统一了右侧结论区编号与名称、加入可拖拽布局/侧栏收纳、把 Litz 成品外径统一到 3D/2D/示意图，并实现方形/矩形“只设外长外宽、内窗按匝数与束径自动生成”的闭环。AEDT 2025 R2 的 2D/3D 校核证明：解析模型可用于初选，但 DD 的解析 k 明显偏乐观，方形/矩形也已改为真实边长解析并与 3D 对齐到 L 偏差 ≤3.5%，必须用 3D / 样机定版；DDQ/BP 的 3D 与 Icepak 温升仍待补齐，不能用 2D 结果或解析温度冒充。
+本次已经把“看不清结构”的 3D 分解图改成**可读的装配态层序视图**，把 2D 改成**真实毫米比例**，并完成圆形 / 方形 / 矩形 / DD 双 D 的 **Maxwell 3D 真模型 + 页面后台校核 + 3D 回归**。同时统一了右侧结论区编号与名称、加入可拖拽布局/侧栏收纳、把 Litz 成品外径统一到 3D/2D/示意图，并实现方形/矩形“只设外长外宽、内窗按匝数与束径自动生成”的闭环。AEDT 2025 R2 的 2D/3D 校核证明：解析模型可用于初选，但 DD 的解析 k 明显偏乐观，方形/矩形也已改为真实边长解析并与 3D 对齐到 L 偏差 ≤3.5%，必须用 3D / 样机定版；DDQ/BP 的 3D 与完整 Icepak 热签核仍待补齐，不能用 2D 结果或解析温度冒充。

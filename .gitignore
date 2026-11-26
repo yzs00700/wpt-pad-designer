@@ -39,6 +39,8 @@ wpt-views.js
 !validation_3d_dd.json
 !validation_3d_sq.json
 !validation_3d_rect.json
+!validation_icepak_thermal_low.json
+!validation_icepak_thermal_high.json
 
 # 系统文件
 Thumbs.db

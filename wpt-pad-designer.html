@@ -3806,9 +3806,9 @@ function update(preserveResults){
       row('铝板工作损耗',femWp&&state.fem.alu_loss_total!=null?'Maxwell双线圈总SolidLoss':'待完整工作点Maxwell')+
       row('磁板铁损',femWp&&state.fem.ferrite_bmax_mT!=null?'Maxwell峰值B + TDK PC95曲线范围筛查':'经验Steinmetz · 待Maxwell B场/厂家曲线')+
       row('温度','热阻/对流解析筛查 · 非Icepak')+
-      row('Icepak状态','求解失败（Failed to run solver）· 不生成温度签核值')+
+      row('Icepak状态','简化单侧稳态筛查已跑通（33.5–35.7 °C，半模型损耗）· 非签核')+
       row('EMF','磁偶极筛查 · 非空间场扫描/认证');
-    $('credNote').textContent=(femWp?'Maxwell已使用当前补偿拓扑的TX/RX复数RMS电流与相位并自动二次迭代；磁板峰值B由场计算提取，PC95铁损仍是厂家曲线范围筛查，尚未建立完整B-P温度材料模型。':'当前尚未获得完整TX/RX工作点，损耗仅作校准。')+' Icepak 尝试在创建求解后报 “Failed to run solver”；ansysli_util 特征检查未能确认 icepak（同一检查对 maxwell 也返回未找到，不能单独作为许可证结论），需继续排查许可证/机柜边界/模型设置。页面温度仅为解析筛查，不出温度签核值。';
+    $('credNote').textContent=(femWp?'Maxwell已使用当前补偿拓扑的TX/RX复数RMS电流与相位并自动二次迭代；磁板峰值B由场计算提取，PC95铁损仍是厂家曲线范围筛查，尚未建立完整B-P温度材料模型。':'当前尚未获得完整TX/RX工作点，损耗仅作校准。')+' Icepak 求解器已修复，独立脚本可跑通简化单侧稳态筛查（低/高损耗 33.5/35.7 °C；TX 单侧，铝板/磁板取半模型损耗，机柜底面等效 HTC 28.3 W/m²K，2 mm 接触空气隙），页面不自动取该结果。该模型未含 RX、外壳/散热筋、辐射与温度相关材料，不能作为热签核；页面温度仍为解析筛查。';
   }
 
   const warn=[];
@@ -4938,9 +4938,9 @@ function reportHTML(d,fem,fem3d,audit){
   `<p class="note">本次未执行 Maxwell 3D。${isRectShape?'方形/矩形不得用 2D 轴对称或圆形结果冒充 3D。':'可在设计器中运行 3D 校核后重新导出。'}</p>`}
   <h2>3. 设计结论与待办</h2><table><tbody>
   <tr><th>当前判断</th><td>${!d.systemFeasible?`${d.vbat.toFixed(0)} V电池/${d.vdc.toFixed(0)} V母线下功率不可实现；现有${d.N}匝、${d.nStr}股Litz窗口${d.systemWindowFeasible?'可布置但仍需电压/电流调整':'不足'}。`:(audit?'电磁L/M/k和Litz损耗已严格网格校核。':(fem3d?'已完成3D L/M/k校核；仍需工作点损耗与热验证。':'满足初选边界，等待严格网格签核。'))}</td></tr>
-  <tr><th>损耗/温度</th><td>${fem||audit?'Maxwell铜损/铝损已计算；PC95铁损目前为厂家曲线范围，不是AEDT直接B-P损耗。':'尚未获得Maxwell工作点损耗。'}Icepak热求解未通过验证（Failed to run solver），因此不出温度签核值；需继续排查许可证、机柜边界与模型设置。</td></tr>
-  <tr><th>数据来源</th><td>解析初选 + ${fem?'Maxwell 2D':'未执行2D'} + ${fem3d?'Maxwell 3D':'未执行3D'} + Icepak未通过验证（温度仅为解析筛查）。</td></tr>
-  <tr><th>下一步</th><td>调整母线/电池或拓扑；扩大绕组窗口并比较800/1000股样线；导入PC95温度相关B-P；定位Icepak求解失败（许可证/机柜边界）并完成温升与样机Rac/Q验证。</td></tr>
+  <tr><th>损耗/温度</th><td>${fem||audit?'Maxwell铜损/铝损已计算；PC95铁损目前为厂家曲线范围，不是AEDT直接B-P损耗。':'尚未获得Maxwell工作点损耗。'}Icepak 简化单侧稳态筛查已跑通（低/高损耗 33.5/35.7 °C，TX 单侧、铝板/磁板取半模型损耗）；未含 RX、外壳/散热筋、辐射与温度相关材料，仍非热签核。页面温度仍为解析筛查。</td></tr>
+  <tr><th>数据来源</th><td>解析初选 + ${fem?'Maxwell 2D':'未执行2D'} + ${fem3d?'Maxwell 3D':'未执行3D'} + Icepak简化单侧筛查（非签核；温度主值仍为解析筛查）。</td></tr>
+  <tr><th>下一步</th><td>调整母线/电池或拓扑；扩大绕组窗口并比较800/1000股样线；导入PC95温度相关B-P；把 Icepak 扩展到 TX+RX 全模型、外壳/散热筋与辐射，并用样机温升标定Rac/Q。</td></tr>
   </tbody></table>
   <div class="small">公开对标来源：${ENGINEERING_BENCHMARKS.map(b=>`<a href="${b.url}" target="_blank">${esc(b.src)}</a>`).join(' · ')}。仅作参数量级比较，不能替代本机工况验证。</div>
   <div class="footer">本报告由WPT·Pad自动生成。工程结论仅适用于所列输入、材料、网格和模型假设；不等同第三方认证或量产批准。审计包=${audit?API+audit.zip_url:'未生成'}。</div>
@@ -5170,7 +5170,7 @@ ${appendix}
   ${fem3d&&fem3d.L!=null&&fem3d.M!=null&&fem3d.k!=null?`<li>3D 校核为按需运行的 Maxwell 3D 涡流场：${esc(fem3d.case)}；L ${fem3d.L.toFixed(2)} µH、M ${fem3d.M.toFixed(2)} µH、k ${fem3d.k.toFixed(3)}。DD 的 3D 结果与页面解析可能存在明显差异；本报告不把 2D 轴对称结果冒充 DD 的 3D 结果。</li>`:''}
   <li>偏心衰减按两圆环互感精确公式逐匝求和；接收端倾斜按圆盘间隙 RMS 折算为等效间隙，未考虑三维端部效应与倾斜引入的横向力。</li>
   <li>补偿拓扑按基波阻抗模型计算，谐振元件取标称值；失谐评估只计入 L/M ±5% 漂移，未含电容容差与开关器件压降。</li>
-  <li>温升为自然对流稳态估算（基板 h = 10 W/m²K，筋效率按 tanh(mL)/(mL) 计算，筋间距 &lt;10 mm 时按通道效应折减 h）；叠层热阻按 PI 绝缘 + 磁板 + 导热层一维串联，接触热阻按 2 K 余量，未含横向扩散、辐射与瞬态。最终热设计建议用 ANSYS Icepak / Mechanical 复核。</li>
+  <li>温升为自然对流稳态估算（基板 h = 10 W/m²K，筋效率按 tanh(mL)/(mL) 计算，筋间距 &lt;10 mm 时按通道效应折减 h）；叠层热阻按 PI 绝缘 + 磁板 + 导热层一维串联，接触热阻按 2 K 余量，未含横向扩散、辐射与瞬态。Icepak 目前只跑通单侧半模型筛查（低/高损耗 33.5/35.7 °C），未含 RX、外壳/散热筋与辐射，不作为签核；最终热设计建议用完整 Icepak / Mechanical 模型与样机实测复核。</li>
   <li>利兹线股数/单丝直径是Maxwell候选输入，不直接给出采购结论；解析电流密度只生成起始候选，最终以AEDT原生Litz Wire模型的StrandedLossAC/Rac扫描、绕组窗口、温升及供应商样线实测为准。</li>
   <li>交流电阻按 Dowell 型解析近似计算：单丝 0.1 mm 趋肤 + 股间邻近效应 + 层数修正，未含接头、端部与绞距附加损耗。</li>
   <li>30 cm 磁密按磁偶极子估算（双板对消等效磁矩），用于 ICNIRP 公众暴露 27 µT 的初判，定型前需按 IEC 62233 实测。</li>
@@ -5181,7 +5181,7 @@ ${appendix}
 <div class="verdict ${verdict[1]}"><b>结论：${verdict[0]}。</b>本方案在 ${d.P} W、${d.gap} mm 间隙、${(d.freq/1000).toFixed(0)} kHz 下的线圈-线圈效率为 ${d.etaCoil.toFixed(1)}%，耦合系数 ${vK.toFixed(3)}，加筋后温升 ${d.dTfin.toFixed(0)} ℃。</div>
 <ul class="sum">
   <li><b>电磁：</b>${fem?'已完成 ANSYS Maxwell 2D 复核，解析与 FEM 的偏差见第 06 节；定型前建议再用 3D 模型复核 DD/DDQ/BP 的端部效应、环向拼缝与倾斜工况。':'本次未执行 ANSYS 校核。建议定型前补充 Maxwell 2D/3D 校核，重点检查 L / M / k、铝板涡流损耗与磁板饱和。'}${fem3d&&fem3d.L!=null&&fem3d.M!=null&&fem3d.k!=null?` 3D 校核：L ${fem3d.L.toFixed(2)} µH、M ${fem3d.M.toFixed(2)} µH、k ${fem3d.k.toFixed(3)}（${fem3d.case}）。`:''}</li>
-  <li><b>热：</b>当前为自然对流稳态估算；样机阶段应实测铝板表面、散热筋根部与线圈热点温度，并按 1.2–1.5 倍设计余量复核。</li>
+  <li><b>热：</b>当前为自然对流稳态估算；Icepak 单侧半模型筛查（33.5/35.7 °C）只用于趋势与边界合理性，不能替代签核。样机阶段应实测铝板表面、散热筋根部与线圈热点温度，并按 1.2–1.5 倍设计余量复核。</li>
   <li><b>结构：</b>${d.shape==='dd'?'DD / DDQ / BP 的 3D 外观为结构示意，实际外壳长宽、圆角、拼块排布与出线位置需在结构图中固化。':'圆形/方形按等效轴对称模型计算；外壳、磁板与铝板的实际圆角、拼缝与出线需在结构图中固化。'}</li>
   <li><b>样机验证：</b>建议至少验证 L / M / k、效率、铝板温升、绝缘耐压、EMC 与 30 cm 磁场暴露；批量前补充间隙/偏心/倾斜公差与磁板批次一致性检查。</li>
 </ul>
