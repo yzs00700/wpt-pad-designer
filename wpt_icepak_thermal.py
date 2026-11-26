@@ -19,7 +19,8 @@ OUT = os.path.join(os.environ.get("TEMP", r"E:\Personal\Temp"), "wpt_sim", "icep
 os.makedirs(OUT, exist_ok=True)
 
 GEOM = {
-    "OD": 250.0, "ID": 120.0, "Dfer": 300.0, "Dalu": 291.0,
+    "OD": 250.0, "ID": 120.0, "Dfer": 300.0, "DferL": 300.0,
+    "Dalu": 291.0, "DaluL": 291.0, "ferShape": "round", "ferR": 0.0,
     "coil_h": 4.264, "pi_t": 0.25, "fer_t": 3.0, "tim_t": 0.50, "alu_t": 3.0,
     "fin_h": 15.0, "fin_w": 4.0, "fin_pitch": 12.0, "n_fin": 19,
 }
@@ -41,6 +42,46 @@ def add_material(ipk, name, k, rho, cp):
         m.specific_heat = cp
     return name
 
+
+def _plate(mdl, name, xlen, ylen, z0, h, material, shape="round", r=0.0):
+    """Create a round or square/rounded-square plate in Icepak."""
+    if shape != "square":
+        return mdl.create_cylinder("Z", [0, 0, z0], xlen / 2.0, h,
+                                   name=name, material=material)
+    obj = mdl.create_box(origin=[-xlen / 2.0, -ylen / 2.0, z0],
+                         sizes=[xlen, ylen, h], name=name, material=material)
+    try:
+        r = float(r or 0.0)
+    except Exception:
+        r = 0.0
+    if r <= 0.01:
+        return obj
+    half = min(xlen, ylen) / 2.0
+    if r >= half * 0.90:
+        try:
+            obj.delete()
+        except Exception:
+            pass
+        return mdl.create_cylinder("Z", [0, 0, z0], half, h,
+                                   name=name, material=material)
+    edges = []
+    for e in obj.edges:
+        try:
+            vs = e.vertices
+            if len(vs) >= 2:
+                p0, p1 = vs[0].position, vs[1].position
+                if (abs(p0[0] - p1[0]) < 1e-3 and abs(p0[1] - p1[1]) < 1e-3
+                        and abs(p0[2] - p1[2]) > h * 0.5):
+                    edges.append(e.id)
+        except Exception:
+            pass
+    if edges:
+        try:
+            obj.fillet(edges=edges, radius=r)
+        except Exception:
+            pass
+    return obj
+
 def solve_case(label, core_total_w):
     tag = time.strftime("%H%M%S")
     project = os.path.join(OUT, "wpt_thermal_%s_%s.aedt" % (label, tag))
@@ -60,24 +101,24 @@ def solve_case(label, core_total_w):
         litz_mat = add_material(ipk, "WPT_Litz_effective", 40.0, 3200.0, 600.0)
 
         mdl = ipk.modeler
-        r_alu = GEOM["Dalu"] / 2.0
-        r_fer = GEOM["Dfer"] / 2.0
+        shape = str(GEOM.get("ferShape", "round")).lower()
+        ferr = float(GEOM.get("ferR", 0) or 0)
         r_out = GEOM["OD"] / 2.0
         r_in = GEOM["ID"] / 2.0
 
-        alu = mdl.create_cylinder("Z", [0, 0, 0], r_alu, GEOM["alu_t"],
-                                  name="AluminumPlate", material=alu_mat)
+        alu = _plate(mdl, "AluminumPlate", GEOM["DaluL"], GEOM["Dalu"],
+                     0, GEOM["alu_t"], alu_mat, shape, ferr)
         # 散热筋不显式建模；用面积增益2.83×折算到外表面HTC，保留叠层3D导热。
 
         z = GEOM["alu_t"]
-        tim = mdl.create_cylinder("Z", [0, 0, z], r_alu, GEOM["tim_t"],
-                                  name="TIM", material=tim_mat)
+        tim = _plate(mdl, "TIM", GEOM["DaluL"], GEOM["Dalu"],
+                     z, GEOM["tim_t"], tim_mat, shape, ferr)
         z += GEOM["tim_t"]
-        ferrite = mdl.create_cylinder("Z", [0, 0, z], r_fer, GEOM["fer_t"],
-                                      name="Ferrite", material=fer_mat)
+        ferrite = _plate(mdl, "Ferrite", GEOM["DferL"], GEOM["Dfer"],
+                         z, GEOM["fer_t"], fer_mat, shape, ferr)
         z += GEOM["fer_t"]
-        pi = mdl.create_cylinder("Z", [0, 0, z], r_out, GEOM["pi_t"],
-                                 name="PI", material=pi_mat)
+        pi = _plate(mdl, "PI", GEOM["DferL"], GEOM["Dfer"],
+                    z, GEOM["pi_t"], pi_mat, shape, ferr)
         z += GEOM["pi_t"]
         coil_outer = mdl.create_cylinder("Z", [0, 0, z], r_out, GEOM["coil_h"],
                                          name="Coil", material=litz_mat)
@@ -164,6 +205,44 @@ def solve_case(label, core_total_w):
             ipk.release_desktop(close_projects=False)
         except Exception:
             pass
+
+def solve_payload(q):
+    """Run a single thermal screening case from a page/bridge payload."""
+    global GEOM, LOSSES, AMBIENT_C, BASE_HTC, AREA_FACTOR, HTC
+    raw_shape = str(q.get("ferShape") or "round").lower()
+    # Icepak 方形叠层在本机会在求解器启动阶段卡住；用等面积圆等效，
+    # 面积与方板一致，热结果只作筛查（3D 电磁仍保留真实方板/R 角）。
+    eq = math.sqrt(4.0 / math.pi) if raw_shape == "square" else 1.0
+    GEOM.update({
+        "OD": float(q.get("OD") or 250),
+        "ID": float(q.get("ID") or 120),
+        "Dfer": float(q.get("Dfer") or 300) * eq,
+        "DferL": float(q.get("DferL") or q.get("Dfer") or 300) * eq,
+        "Dalu": float(q.get("Dalu") or 291) * eq,
+        "DaluL": float(q.get("DaluL") or q.get("Dalu") or 291) * eq,
+        "ferShape": "round",
+        "ferR": 0.0,
+        "coil_h": float(q.get("coilH") or q.get("coil_h") or 4.0),
+        "pi_t": float(q.get("ins") or 0.25),
+        "fer_t": float(q.get("tf") or 3.0),
+        "tim_t": float(q.get("tim") or 0.5),
+        "alu_t": float(q.get("ta") or 3.0),
+    })
+    loss_coil = float(q.get("loss_coil") or 0.0)
+    loss_alu = float(q.get("loss_alu") or 0.0)
+    loss_fer = float(q.get("loss_fer") or 0.0)
+    LOSSES = {"coil_tx_W": loss_coil,
+              "aluminum_both_W": loss_alu * 2.0,
+              "core_both_range_W": [loss_fer * 2.0, loss_fer * 2.0]}
+    AMBIENT_C = float(q.get("ambient") or 25.0)
+    BASE_HTC = float(q.get("baseHtc") or 10.0)
+    AREA_FACTOR = float(q.get("areaFactor") or 2.83)
+    HTC = BASE_HTC * AREA_FACTOR
+    r = solve_case(str(q.get("label") or "core_live"), loss_fer * 2.0)
+    if raw_shape == "square":
+        r["thermal_note"] = "方形磁板按等面积圆等效；R 角未建，仅作热筛查"
+    return r
+
 
 def main():
     import sys

@@ -524,7 +524,7 @@ body.simLocked .side{pointer-events:none}
         <path d="M16 11c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>
         <path d="M17.6 5.5l-5.2 8.3h4.1l-2.1 7.2 6.9-9.4h-4.1l2.4-6.1z" fill="currentColor"/>
       </svg><span>WPT·Pad</span></h1>
-      <div class="sub">WPT Pad Designer · 大功率无线充电线圈参数化设计器 · v0.3.5</div>
+      <div class="sub">WPT Pad Designer · 大功率无线充电线圈参数化设计器 · v0.3.6</div>
       <div class="brandtools">
         <div class="expandtools">
           <button id="expandAll" type="button" title="展开 / 收起全部">全部展开</button>
@@ -1253,6 +1253,10 @@ body.simLocked .side{pointer-events:none}
 
     <div class="rsec" id="ansysSec">
       <div class="rsech">09 · ANSYS 仿真校核 <span class="tag" id="aedtTag" style="float:right">检测中…</span></div>
+      <div class="grp" style="margin:8px 0 2px">
+        <label class="chk"><input type="checkbox" id="thermalOpt"> 需要温度仿真（Icepak 单侧筛查）</label>
+        <div class="note" style="margin-top:4px">勾选后，2D/3D 求解完成自动提交 Icepak 温度筛查；结果为单侧半模型筛查，不作为热签核。</div>
+      </div>
 
       <div class="simTask" data-task="ana">
         <div class="simTaskHead"><span class="play"></span><b>本地解析计算</b><em>快速初筛</em></div>
@@ -1292,6 +1296,8 @@ body.simLocked .side{pointer-events:none}
             <div class="grid2" id="fem3dImages"></div>
             <div id="fem3dLinks" class="row" style="flex-wrap:wrap;margin-top:7px"></div>
           </div>
+          <div class="stat" id="thermalStat">温度仿真未运行</div>
+          <table class="tbl" id="thermalTbl"></table>
           <div class="subhd" style="margin-top:10px"><i></i><span>温度场图（Icepak / 外部）</span></div>
           <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:5px">
             <button class="btn mini" id="thermalPick">导入温度图</button>
@@ -3769,6 +3775,7 @@ function readInputs(){
     cool:state.cool,fan:$('fanSel').value,fanQ:+$('fq').value,
     ferMat:$('ferMat').value,aluMat:$('aluMat').value,
     ferOn:$('ferOn').checked,aluOn:$('aluOn').checked,shellOn:$('shellOn').checked,
+    thermalOpt:$('thermalOpt').checked,
     ferMode:state.ferMode||'tiled',ferShape:state.ferShape||'round',
     ferShapeManual:!!state.ferShapeManual,ferAuto:$('ferAuto').checked,ferSize:+$('ferSize').value,ferR:+$('ferR').value};
 }
@@ -4414,6 +4421,88 @@ $('aluMat').addEventListener('change',update);
   });
 })();
 
+/* ---- Icepak 温度筛查（2D/3D 完成后的可选任务） ---- */
+let thermalJob=null, thermalTimer=null, thermalSrc='3D';
+function thermalLosses(d, src){
+  const fem = src==='3D' ? state.fem3d : state.fem;
+  const coil = (fem && fem.stranded_loss_tx != null) ? fem.stranded_loss_tx : (d.Pcu||0);
+  let alu = d.Peddy||0;
+  if(fem){
+    if(fem.alu_loss_total!=null) alu = fem.alu_loss_total/2;
+    else if(fem.alu_loss!=null) alu = fem.alu_loss;
+  }
+  const fer = (d.Pcore||0)/2;
+  return {coil:Math.max(0,+coil||0), alu:Math.max(0,+alu||0), fer:Math.max(0,+fer||0)};
+}
+function renderThermal(r, src){
+  const st=$('thermalStat'), tb=$('thermalTbl'); if(!st||!tb) return;
+  st.className='stat '+(r.plausible===false?'err':'on');
+  st.textContent=(r.plausible===false?'✖ ':'✔ ')+'Icepak 温度筛查完成（'+src+' 单侧半模型）· 最高 '+
+    (+r.hottest_C).toFixed(1)+' °C · 用时 '+(r.seconds||'—')+' s';
+  tb.innerHTML=
+    `<tr><th>项目</th><th>数值</th><th>说明</th></tr>`+
+    `<tr><td>线圈最高</td><td>${(+r.coil_max_C).toFixed(1)} °C</td><td>TX 单侧线圈损耗 ${(+r.losses_W.coil).toFixed(2)} W</td></tr>`+
+    `<tr><td>磁板最高</td><td>${(+r.ferrite_max_C).toFixed(1)} °C</td><td>单侧半模型磁损 ${(+r.losses_W.ferrite).toFixed(2)} W</td></tr>`+
+    `<tr><td>铝板最高</td><td>${(+r.aluminum_max_C).toFixed(1)} °C</td><td>单侧半模型铝损 ${(+r.losses_W.aluminum).toFixed(2)} W</td></tr>`+
+    `<tr><td>环境 / HTC</td><td>${r.ambient_C} °C / ${r.effective_htc_W_m2K} W/m²K</td><td>机柜底面等效散热</td></tr>`+
+    `<tr><td>模型口径</td><td>${r.thermal_note||'单侧半模型'}</td><td>不是 Icepak 全模型热签核</td></tr>`+
+    `<tr><td>结论口径</td><td>${r.plausible?'合理筛查':'超出合理范围'}</td><td>单侧半模型，不是 Icepak 全模型热签核</td></tr>`;
+}
+async function pollThermal(){
+  if(!thermalJob) return;
+  try{
+    const j=await (await fetch(API+'/thermal/status?id='+encodeURIComponent(thermalJob))).json();
+    if(!j||j.error) throw new Error(j&&j.error||'温度任务状态失败');
+    if(j.status==='queued'||j.status==='running'){
+      const st=$('thermalStat');
+      if(st) st.textContent='● Icepak 温度筛查中… 已用 '+(j.elapsed||0)+' s（约 2 分钟）';
+      return;
+    }
+    const id=thermalJob; thermalJob=null; clearInterval(thermalTimer); thermalTimer=null;
+    simStop(); setSimLock(false);
+    if(j.status==='done'&&j.result){
+      const r=j.result; r.seconds=j.seconds||j.elapsed;
+      renderThermal(r, thermalSrc);
+    }else if(j.status==='cancelled'){
+      $('thermalStat').className='stat err';
+      $('thermalStat').textContent='■ 温度筛查已中止 · 已终止 Icepak 与 AEDT';
+    }else{
+      $('thermalStat').className='stat err';
+      $('thermalStat').textContent='✖ 温度筛查失败 · '+(j.error||'未知错误');
+    }
+    update3dBtn();
+  }catch(e){
+    clearInterval(thermalTimer); thermalTimer=null;
+    const id=thermalJob; thermalJob=null;
+    simStop(); setSimLock(false);
+    const st=$('thermalStat');
+    if(st){ st.className='stat err'; st.textContent='✖ 温度筛查状态失败 · '+e.message; }
+  }
+}
+async function startThermal(d, src){
+  if(!d||thermalJob) return;
+  thermalSrc=src||'3D';
+  if(!aedtReady){ const st=$('thermalStat'); if(st){st.className='stat err';st.textContent='桥接/AEDT 未连接，无法运行温度筛查';} return; }
+  const L=thermalLosses(d,src);
+  const payload={OD:d.OD,ID:d.ID,Dfer:d.Dfer,DferL:d.DferL,Dalu:d.Dalu,DaluL:d.DaluL,
+    tf:d.tf,ta:d.ta,tim:d.tim,ins:d.ins,coilH:d.coilH,ferShape:d.ferShape,ferR:d.ferR,
+    loss_coil:L.coil,loss_alu:L.alu,loss_fer:L.fer,ambient:d.amb,label:'live_'+src.toLowerCase()};
+  setSimLock(true);
+  simStart('Icepak 温度筛查','单侧半模型 · 机柜底面等效 HTC',0,{abort:true});
+  const st=$('thermalStat');
+  if(st){ st.className='stat busy'; st.textContent='● Icepak 温度筛查提交中…'; }
+  try{
+    const r=await fetch(API+'/thermal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+    thermalJob=j.id;
+    if(st) st.textContent='● Icepak 温度筛查中… 已提交 '+(j.id||'');
+    thermalTimer=setInterval(pollThermal,2000);
+  }catch(e){
+    simStop(); setSimLock(false);
+    if(st){ st.className='stat err'; st.textContent='✖ 温度任务提交失败 · '+e.message; }
+  }
+}
 /* ---- 仿真/计算动态效果 ---- */
 let simTimer=null,simClock=null,simDoneTimer=null,simT0=0;
 function simStart(label,sub,ms,opt){
@@ -4450,6 +4539,12 @@ function simStop(){
   document.querySelectorAll('.xview').forEach(v=>v.classList.remove('simulating'));
   clearTimeout(simTimer); simTimer=null;
   clearInterval(simClock); simClock=null;
+  if(thermalJob){
+    const id=thermalJob; thermalJob=null;
+    clearInterval(thermalTimer); thermalTimer=null;
+    try{ fetch(API+'/thermal/cancel',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id}),keepalive:true}); }catch(e){}
+  }
 }
 function simDoneShow(title,sub,bad,hold){
   const d=document.getElementById('simDone'); if(!d) return;
@@ -4698,6 +4793,7 @@ async function startAuditSolve(){
   st.className='stat busy'; st.textContent='● 工程签核第1阶段：快速Maxwell工作点校准…';
   simStart('工程签核仿真','严格网格 · 场图 · AEDT工程包',0,{abort:true});
   solveGuard=setTimeout(()=>{solveTimedOut=true;ctrl.abort();},360000);
+  let auditOk=false;
   try{
     const post=async payload=>{
       const r=await fetch(API+'/solve',{method:'POST',headers:{'Content-Type':'application/json'},signal:ctrl.signal,body:JSON.stringify(payload)});
@@ -4716,6 +4812,7 @@ async function startAuditSolve(){
     state.fem=j; state.audit=j.audit||null; update(true); renderAudit(j.audit,j);
     $('femView').style.display='flex';
     simDoneShow('工程签核完成','严格网格 · '+j.times.sec+' s',false,12000);
+    auditOk=true;
   }catch(e){
     const aborted=!!e&&e.name==='AbortError';
     if(aborted) await kill2dServer();
@@ -4729,6 +4826,7 @@ async function startAuditSolve(){
     setSimLock(false);
     update3dBtn();
   }
+  if(auditOk && $('thermalOpt') && $('thermalOpt').checked) startThermal(state.last,'2D');
 }
 
 /* ---- 3D Maxwell 后台校核 ---- */
@@ -4860,10 +4958,12 @@ function poll3d(){
       clearInterval(job3dTimer); job3dTimer=null;
       job3d=null;
       simStop();
+      let runThermal=false;
       if(j.status==='done'&&j.result){
         render3d(j.result);
         const sn3=j.shape==='dd'?'DD':j.shape==='sq'?'方形':j.shape==='rect'?'矩形':'圆形';
         simDoneShow('3D 仿真完成',sn3+' · '+(j.result.seconds||sec)+' s',false,12000);
+        runThermal=!!($('thermalOpt')&&$('thermalOpt').checked);
       }else if(j.status==='cancelled'){
         $('stat3d').className='stat err';
         $('stat3d').textContent='■ 已中止 · 已终止 3D 子进程与 AEDT；可修改参数后重新仿真';
@@ -4875,6 +4975,7 @@ function poll3d(){
       }
       setSimLock(false);
       update3dBtn();
+      if(runThermal && state.last) startThermal(state.last,'3D');
     }catch(e){
       job3dFails++;
       const st=$('stat3d');
@@ -5029,6 +5130,7 @@ function applyInput(inp){
   $('timOn').checked=$('timMat').value!=='air';
   $('aluOn').checked=$('aluMat').value!=='air';
   $('shellOn').checked=inp.shellOn!==false;
+  $('thermalOpt').checked=!!inp.thermalOpt;
   MAT_TOGGLES.forEach(f=>f());
   syncFerUI();
   state.cool=inp.cool==='active'?'active':'passive';
@@ -5186,7 +5288,7 @@ function reportHTML(d,fem,fem3d,audit){
   .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:2mm;margin:3mm 0}.kpi{padding:2.5mm;border:1px solid #d8e0e7;background:#fbfcfd}.kpi b{display:block;font:700 14pt Consolas,monospace;color:#10231b}.kpi span{font-size:7.5pt;color:#5d6b79}
   table{width:100%;border-collapse:collapse;font-size:8.5pt}th,td{text-align:left;padding:1.5mm 2mm;border-bottom:1px solid #dce3e9;vertical-align:top}th{background:#edf3f0;color:#30453b}.num{font-family:Consolas,monospace;white-space:nowrap}.small{font-size:7.7pt;color:#596777}.pics{display:grid;grid-template-columns:1fr 1fr;gap:2mm}.pics img{width:100%;height:68mm;object-fit:contain;border:1px solid #d8e0e7}.footer{margin-top:4mm;border-top:1px solid #d8e0e7;padding-top:2mm;font-size:7.5pt;color:#657386}
   </style></head><body>
-  <h1>${esc(name)} · 无线充电耦合器设计评审</h1><div class="meta">WPT·Pad v0.3.5 · ${now} · AEDT ${audit?'2025 R2严格网格':(fem3d?'2025 R2 3D':'未执行严格签核')} · 单位 mm / kHz / µH / A / W</div>
+  <h1>${esc(name)} · 无线充电耦合器设计评审</h1><div class="meta">WPT·Pad v0.3.6 · ${now} · AEDT ${audit?'2025 R2严格网格':(fem3d?'2025 R2 3D':'未执行严格签核')} · 单位 mm / kHz / µH / A / W</div>
   <div class="status ${!d.systemFeasible?'bad':(audit?'ok':(fem3d?'warn':'warn'))}"><b>${!d.systemFeasible?'结论：当前系统边界不可实现，禁止按当前工况签核。':(audit?'结论：Maxwell严格网格签核完成，仍需样机/热验证。':(fem3d?'结论：已完成 Maxwell 3D 电磁校核；工作点损耗、Icepak 与样机尚未闭环。':'结论：设计初选，尚未完成Maxwell工程签核。'))}</b><br>
   输出${d.P} W，电池${d.vbat.toFixed(0)} V，母线${d.vdc.toFixed(0)} V；TX/RX电流${d.workPoint.iTx.toFixed(1)}/${d.workPoint.iRx.toFixed(1)} A RMS，所需基波${d.vinRequired.toFixed(0)} V，可用${d.vinAvailable.toFixed(0)} V；${!d.systemFeasible?'母线电压或绕组窗口不足。':'输入边界通过初步可行性检查。'}</div>
   <div class="kpis">${kpi(d.P,'W','输出目标')}${kpi(d.vbat.toFixed(0),'V','电池')}${kpi(d.systemJ.toFixed(2),'A/mm²','系统电流密度')}${kpi(d.nStr,'股','Litz候选')}</div>
@@ -5331,7 +5433,7 @@ ul.limits{margin:2mm 0 0 5mm;padding:0;font-size:8.8pt;color:#5b6877;line-height
     <h1>${esc(name)}</h1>
     <div class="csub">大功率无线充电线圈 · 磁板 · 铝板 设计计算报告</div>
     <div class="cgrid">
-      <div class="cbox"><div class="k">项目 / 版本</div><div class="v">${esc(name)} · v0.3.5</div></div>
+      <div class="cbox"><div class="k">项目 / 版本</div><div class="v">${esc(name)} · v0.3.6</div></div>
       <div class="cbox"><div class="k">生成时间</div><div class="v">${now}</div></div>
       <div class="cbox"><div class="k">额定功率 / 频率</div><div class="v">${d.P} W / ${(d.freq/1000).toFixed(0)} kHz</div></div>
       <div class="cbox"><div class="k">耦合系数 / 效率</div><div class="v">k ${vK.toFixed(3)} / ${d.etaCoil.toFixed(1)}%</div></div>

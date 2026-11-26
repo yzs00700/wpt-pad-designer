@@ -929,6 +929,105 @@ def _run_3d_job(jid, q):
             JOB_ACTIVE = False
 
 
+def _run_thermal_job(jid, q):
+    """用独立子进程跑 Icepak 温度筛查，避免阻塞 HTTP。"""
+    global JOB_ACTIVE
+    t0 = time.time()
+    jobdir = os.path.join(OUT, "jobs_thermal")
+    os.makedirs(jobdir, exist_ok=True)
+    qfile = os.path.join(jobdir, "%s.req.json" % jid)
+    rfile = os.path.join(jobdir, "%s.res.json" % jid)
+    logfile = os.path.join(jobdir, "%s.log" % jid)
+    try:
+        with open(qfile, "w", encoding="utf-8") as f:
+            json.dump(q, f, ensure_ascii=False)
+    except Exception as e:
+        with JOB_LOCK:
+            job = JOBS.get(jid)
+            if job:
+                job["status"] = "error"
+                job["error"] = "写入温度请求失败: %s" % e
+            JOB_ACTIVE = False
+        return
+
+    with JOB_LOCK:
+        job = JOBS.get(jid)
+        if job and job.get("cancelled"):
+            job["status"] = "cancelled"
+            job["seconds"] = round(time.time() - t0, 1)
+            JOB_ACTIVE = False
+            return
+        if job:
+            job.update(status="running", started=time.strftime("%H:%M:%S"), t0=t0,
+                       log=os.path.basename(logfile))
+    out = None
+    err = None
+    rc = None
+    log = open(logfile, "w", encoding="utf-8")
+    try:
+        cmd = [sys.executable, os.path.join(HERE, "wpt_thermal_worker.py"), qfile, rfile]
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        print("[bridge] thermal worker <- %s" % json.dumps(
+            {k: q.get(k) for k in ("OD", "ID", "Dfer", "tf", "ta", "loss_coil",
+                                   "loss_alu", "loss_fer")}, ensure_ascii=False))
+        p = subprocess.Popen(cmd, cwd=HERE, stdout=log, stderr=subprocess.STDOUT,
+                             creationflags=flags)
+        with JOB_LOCK:
+            PROCS[jid] = p
+            cancelled = bool(job and job.get("cancelled"))
+        if cancelled:
+            _kill_tree(p.pid)
+        try:
+            rc = p.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            _kill_tree(p.pid)
+            try:
+                p.wait(timeout=10)
+            except Exception:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+            err = "温度子进程超过 600 s，已终止"
+        print("[bridge] thermal worker done rc=%s" % rc)
+        if os.path.exists(rfile):
+            with open(rfile, "r", encoding="utf-8") as f:
+                out = json.load(f)
+        if out is None:
+            if not err:
+                err = "温度 worker 未产出结果（rc=%s），日志见 %s" % (rc, os.path.basename(logfile))
+        elif not out.get("ok"):
+            err = str(out.get("error") or "温度 worker 返回失败")
+        else:
+            print("[bridge] thermal done %.1fs hottest=%s" %
+                  (out.get("seconds", 0), out.get("hottest_C")))
+    except Exception as e:
+        traceback.print_exc()
+        err = "%s: %s" % (type(e).__name__, str(e)[:400])
+    finally:
+        try:
+            log.close()
+        except Exception:
+            pass
+        with JOB_LOCK:
+            PROCS.pop(jid, None)
+            job = JOBS.get(jid)
+            if job:
+                job["seconds"] = round(time.time() - t0, 1)
+                job["finished"] = time.strftime("%H:%M:%S")
+                if job.get("cancelled"):
+                    job["status"] = "cancelled"
+                    if out:
+                        job["result"] = out
+                elif err:
+                    job["status"] = "error"
+                    job["error"] = err
+                else:
+                    job["status"] = "done"
+                    job["result"] = out
+            JOB_ACTIVE = False
+
+
 def _job_status(jid):
     with JOB_LOCK:
         job = JOBS.get(jid)
@@ -1013,6 +1112,13 @@ class Handler(BaseHTTPRequestHandler):
             if not job:
                 return self._json({"error": "3D 任务不存在或已过期"}, 404)
             return self._json(job)
+        if path == "/thermal/status":
+            qs = parse_qs(urlparse(self.path).query)
+            jid = (qs.get("id") or [""])[0]
+            job = _job_status(jid)
+            if not job:
+                return self._json({"error": "温度任务不存在或已过期"}, 404)
+            return self._json(job)
         if path == "/detect":
             info = dict(AEDT_INFO)
             info["ok"] = True
@@ -1037,7 +1143,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global JOB_ACTIVE, JOB_SEQ
         path = urlparse(self.path).path
-        if path not in ("/solve", "/solve3d", "/solve3d/cancel", "/solve/cancel"):
+        if path not in ("/solve", "/solve3d", "/solve3d/cancel", "/solve/cancel",
+                        "/thermal", "/thermal/cancel"):
             return self._json({"error": "not found"}, 404)
         try:
             n = int(self.headers.get("Content-Length") or 0)
@@ -1068,6 +1175,32 @@ class Handler(BaseHTTPRequestHandler):
             _cancel_job(jid, "已终止 3D worker 与 AEDT 进程树")
             return self._json({"ok": True, "id": jid,
                                "note": "已终止 3D worker 及其 AEDT 子进程"})
+
+        if path == "/thermal/cancel":
+            jid = str(q.get("id") or "")
+            with JOB_LOCK:
+                job = JOBS.get(jid)
+                if not job:
+                    return self._json({"error": "温度任务不存在或已过期"}, 404)
+            _cancel_job(jid, "已终止温度 worker 与 AEDT 进程树")
+            return self._json({"ok": True, "id": jid,
+                               "note": "已终止温度 worker 及其 AEDT 子进程"})
+
+        if path == "/thermal":
+            with JOB_LOCK:
+                if JOB_ACTIVE or LOCK.locked():
+                    return self._json({"error": "已有求解任务在运行，请等它完成"}, 409)
+                JOB_SEQ += 1
+                jid = "j3t_%s_%d" % (time.strftime("%H%M%S"), JOB_SEQ)
+                JOBS[jid] = {
+                    "id": jid, "status": "queued",
+                    "created": time.strftime("%H:%M:%S"),
+                    "seen": time.time(),
+                    "kind": "thermal",
+                }
+                JOB_ACTIVE = True
+            threading.Thread(target=_run_thermal_job, args=(jid, q), daemon=True).start()
+            return self._json({"ok": True, "id": jid, "status": "queued"})
 
         if path == "/solve3d":
             with JOB_LOCK:

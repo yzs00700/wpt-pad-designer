@@ -274,6 +274,13 @@
 - 线圈高度不再固定 4 mm，改为 `coilH = 束径 × 层数 + 0.15 mm`；内径自动模式旁给出 `turnIns ≈ (OD−ID)/(2N) − 束径` 反算提示。对 Ø98/Ø48/15 匝，实际节距 1.667 mm；130×0.1 束径约 1.54，反算匝间绝缘约 0.13 mm，默认 0.20 mm 会得到 45.9 mm 内径。
 - 以上视觉项已通过 headless Edge 语法/运行检查；3D 视图与闪电的实际观感仍需在 Chrome/Edge 图形模式目视确认。
 
+### 2A.17 2D/3D 可选温度仿真（自动串联）
+
+- 右侧 09 增加“需要温度仿真（Icepak 单侧筛查）”勾选，默认关闭；勾选后 2D/3D 求解完成自动提交 `/thermal` 后台任务，结果写入 09 的温度表，不覆盖电磁结果。
+- 新增 `wpt_thermal_worker.py` 与 `wpt_bridge.py` 的 `/thermal`、`/thermal/status`、`/thermal/cancel`；沿用 2D/3D 的独立子进程、超时和进程树清理。
+- `wpt_icepak_thermal.py` 改为 `solve_payload(q)`：接收当前 OD/ID/Dfer/Dalu/tf/ta/tim/ins/coilH、单侧铜损/铝损/磁损、环境温度；方形磁板用**等面积圆等效**（面积一致，R 角不建）避免方形叠层在 Icepak 求解器启动阶段卡住，结果标注为筛查。
+- **当前阻塞**：2026-11-26 服务重启后，本机最小 Icepak 探针也停在 `Solving design setup`（Fluent 子进程低 CPU），自动温度端到端未完成验证；勾选默认关闭，需重启 AEDT/许可证环境后复测。代码路径已接入，不能把未跑通的温度当作已签核。
+
 ---
 
 ## 3. AEDT 2025 R2 验证结果
