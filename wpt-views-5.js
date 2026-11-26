@@ -20,7 +20,7 @@
   function sceneKey(d) {
     return [d.side || 'both', d.shape, d.ddType || 'dd', d.ddL || 0, d.ddW || 0, d.Dhous, d.OD, d.ID, d.N, d.gap, d.dx, d.dy, d.tilt,
       d.shell, d.coilH, d.ins, d.tf, d.tim, d.ta, d.finH, d.finW, d.finP, d.nFin,
-      d.tile, d.gapTile, d.Dfer, d.DferL || 0, d.Dalu, d.DaluL || 0,
+      d.tile, d.gapTile, d.Dfer, d.DferL || 0, d.Dalu, d.DaluL || 0, d.ferShape || '', d.ferMode || '',
       d.geomLout || 0, d.geomWout || 0, d.geomLin || 0, d.geomWin || 0,
       d.bundleOD || 0, d.turnIns || 0].join('|');
   }

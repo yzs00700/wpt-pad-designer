@@ -149,30 +149,23 @@
     var s = size / Math.max(bw, 1);
     return [Math.max(2, bl * s), Math.max(2, bw * s)];
   }
+  function plateShapeOf(d) {
+    if (d.ferShape === 'square') return 'square';
+    if (d.ferShape === 'round') return 'round';
+    return (d.shape === 'dd' || d.shape === 'rect' || d.shape === 'sq') ? 'square' : 'round';
+  }
   function outlineForD(d, size) {
-    if (d.shape === 'dd') {
-      var delta = ddDelta(d), w = size + delta, h = size;
-      var r = Math.min(h * 0.5, w * 0.12);
-      return roundRectPath(w, h, r, 14);
+    if (plateShapeOf(d) === 'square') {
+      return roundRectPath(size, size, Math.min(size * 0.12, size / 2), 14);
     }
-    if (d.shape === 'rect' || d.shape === 'sq') {
-      var wh = rectPlateOf(d, size);
-      return roundRectPath(wh[0], wh[1], Math.min(wh[1] * 0.12, wh[1] / 2), 14);
-    }
-    return outlineFor(d.shape, size);
+    return circlePoly(size / 2, 96);
   }
   function outlineInsetD(d, size, inset) {
-    if (d.shape === 'dd') {
-      var delta = ddDelta(d), w = Math.max(2, size + delta - 2 * inset), h = Math.max(2, size - 2 * inset);
-      var r = Math.min(h * 0.5, w * 0.12);
-      return roundRectPath(w, h, Math.max(0.5, r), 14);
+    if (plateShapeOf(d) === 'square') {
+      var s = Math.max(2, size - 2 * inset);
+      return roundRectPath(s, s, Math.min(s * 0.12, s / 2), 14);
     }
-    if (d.shape === 'rect' || d.shape === 'sq') {
-      var wh = rectPlateOf(d, size);
-      return roundRectPath(Math.max(2, wh[0] - 2 * inset), Math.max(2, wh[1] - 2 * inset),
-        Math.min(Math.max(0.5, wh[1] * 0.12 - inset), Math.max(0.5, wh[1] / 2 - inset)), 14);
-    }
-    return outlineInset(d.shape, size, inset);
+    return circlePoly(Math.max(0.5, size / 2 - inset), 96);
   }
   /* 椭圆 D 形半环：中心平边在 x=±gap/2，外弧在 side 侧 */
   function dPathE(rx, rz, side, gap, rot) {

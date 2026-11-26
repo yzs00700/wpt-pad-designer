@@ -299,6 +299,9 @@ def build_and_solve(q):
     TILE = float(q.get("tile") or 0)        # 磁板拼块边长 mm
     GAPT = float(q.get("gapTile") or 0)     # 拼缝宽度 mm
     SHAPE = str(q.get("shape", "circ"))
+    FER_SHAPE = str(q.get("ferShape", "round")).lower()
+    if SHAPE == "circ" and FER_SHAPE == "square":
+        raise ValueError("方形磁板不能用 2D 轴对称表示；请改用 3D 校核")
     DX = float(q.get("dx") or 0)
     DY = float(q.get("dy") or 0)
     DELTA = (DX * DX + DY * DY) ** 0.5
@@ -333,6 +336,7 @@ def build_and_solve(q):
                    "Dalu": round(ALU_R * 2, 1), "ferMu": FER_MU,
                    "aluSig": ALU_SIG, "coilH": COIL_H,
                    "tile": TILE, "gapTile": GAPT,
+                   "ferShape": FER_SHAPE, "ferMode": str(q.get("ferMode", "tiled")),
                    "dx": DX, "dy": DY, "delta": round(DELTA, 1),
                    "litzN": LITZ_N, "litzD": LITZ_D, "litzTwist": LITZ_TWIST,
                    "litzFill": LITZ_FILL, "bundleD": round(BUNDLE_D, 4), "turnIns": TURN_INS,

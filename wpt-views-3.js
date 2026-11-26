@@ -293,13 +293,21 @@
       }
       return '<circle cx="' + X(cmX).toFixed(1) + '" cy="' + Y(cmY).toFixed(1) + '" r="' + (size / 2 * sc).toFixed(1) + '" ' + attrs + '/>';
     }
+    function padPlateSvg(size, cmX, cmY, attrs) {
+      if (d.ferShape === 'square') {
+        return rectSvg(cmX, cmY, size, size, Math.min(size * 0.12, size / 2), attrs);
+      }
+      if (d.ferShape === 'round') {
+        return '<circle cx="' + X(cmX).toFixed(1) + '" cy="' + Y(cmY).toFixed(1) + '" r="' + (size / 2 * sc).toFixed(1) + '" ' + attrs + '/>';
+      }
+      return padSvg(size, cmX, cmY, attrs);
+    }
     var out = '', Ro = d.OD / 2, Ri = d.ID / 2, i;
-    out += '<defs><clipPath id="clipTX">' + padSvg(d.Dfer, 0, 0, '') + '</clipPath></defs>';
-    if(d.shellOn!==false) out += padSvg(d.Dhous, 0, 0, 'fill="rgba(86,168,255,.045)" stroke="' + P.shellLine + '" stroke-width="1.1"');
+    out += '<defs><clipPath id="clipTX">' + padPlateSvg(d.Dfer, 0, 0, '') + '</clipPath></defs>';
+    if(d.shellOn!==false) out += padPlateSvg(d.Dhous, 0, 0, 'fill="rgba(86,168,255,.045)" stroke="' + P.shellLine + '" stroke-width="1.1"');
     if(d.ferOn!==false){
-      out += padSvg(d.Dfer, 0, 0, 'fill="none" stroke="' + P.ferLine + '" stroke-width="0.7" stroke-dasharray="3 3"');
+      out += padPlateSvg(d.Dfer, 0, 0, 'fill="none" stroke="' + P.ferLine + '" stroke-width="0.7" stroke-dasharray="3 3"');
       var fL = d.DferL || d.Dfer, fW = d.Dfer;
-      if(isRect||d.shape==='sq'){fL=d.DferL||d.Dfer;fW=d.Dfer;}
       var nX = Math.max(1, Math.ceil(fL / Math.max(20, d.tile || 100)));
       var nZ = Math.max(1, Math.ceil(fW / Math.max(20, d.tile || 100)));
       for (i = 1; i < nX; i++) {
