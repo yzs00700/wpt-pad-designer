@@ -56,7 +56,7 @@
     else VIEW.orthoR = 0;
     updateFit();
     /* 立体视图默认放大一点，减少 3D 舞台上下空白；正视/侧视/顶视保持全尺寸不裁切 */
-    VIEW.zoom = (k === 'iso' && asp >= 1.12) ? 1.22 : 1;
+    VIEW.zoom = 1;
     applyZoom();
     var vs = el('viewset');
     if (vs) Array.prototype.forEach.call(vs.children, function (b) {
@@ -100,6 +100,7 @@
           VIEW.pitch = clamp(VIEW.pitch + dy * 0.006, -1.45, 1.45);
           var vs = el('viewset');
           if (vs) Array.prototype.forEach.call(vs.children, function (b) { b.classList.remove('on'); });
+          updateFit(); applyZoom();
           drawGL();
         }
       });
@@ -177,7 +178,7 @@
       if (ensureSize()) { /* sized */ } else { updateFit(); applyZoom(); }
       if (!VIEW.booted) {
         VIEW.booted = true;
-        if ((VIEW.w || 640) / (VIEW.h || 480) >= 1.12) { VIEW.zoom = 1.22; applyZoom(); }
+        if ((VIEW.w || 640) / (VIEW.h || 480) >= 1.12) { VIEW.zoom = 1; applyZoom(); }
       }
       drawGL();
     } else {
@@ -224,9 +225,28 @@
     return out;
   }
 
+  function setFlow(on) {
+    VIEW.flow = !!on;
+    if (on) {
+      if (!VIEW.flowRAF) {
+        var tick = function (ts) {
+          if (!VIEW.flow) { VIEW.flowRAF = 0; return; }
+          VIEW.flowPhase = (ts || 0) * 0.001;
+          drawGL();
+          VIEW.flowRAF = requestAnimationFrame(tick);
+        };
+        VIEW.flowRAF = requestAnimationFrame(tick);
+      }
+    } else {
+      if (VIEW.flowRAF) { cancelAnimationFrame(VIEW.flowRAF); VIEW.flowRAF = 0; }
+      drawGL();
+    }
+  }
+
   window.WPTView = {
     update: update,
     setView: setView,
+    setFlow: setFlow,
     captureReport: captureReport,
     resize: function () { resizeGL(); },
     get view() { return VIEW; }

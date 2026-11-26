@@ -48,7 +48,7 @@
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
       gl.useProgram(p);
       GL = {
-        gl: gl, prog: p, buffers: [], grid: null,
+        gl: gl, prog: p, buffers: [], grid: null, lightBase: null, lightHead: null,
         loc: {
           aPos: gl.getAttribLocation(p, 'aPos'), aNrm: gl.getAttribLocation(p, 'aNrm'),
           uVP: gl.getUniformLocation(p, 'uVP'), uEye: gl.getUniformLocation(p, 'uEye'),
@@ -77,6 +77,72 @@
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.n), gl.STATIC_DRAW);
     return { pb: pb, nb: nb, count: mesh.p.length / 3, col: hexRgb(mesh.col), alpha: mesh.alpha, glass: mesh.glass, k: mesh.k, mode: 'TRIANGLES' };
   }
+
+  function ensureLightBufs() {
+    if (GL.lightBase) return;
+    GL.lightBase = { pb: GL.gl.createBuffer(), nb: GL.gl.createBuffer(), col: [0.10, 0.72, 1.0], alpha: 0.55, mode: 'LINES', count: 0, glass: false };
+    GL.lightHead = { pb: GL.gl.createBuffer(), nb: GL.gl.createBuffer(), col: [0.82, 0.97, 1.0], alpha: 1.0, mode: 'LINES', count: 0, glass: false };
+  }
+  function updateLightBuf(buf, arr) {
+    var gl = GL.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf.pb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf.nb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr.length), gl.DYNAMIC_DRAW);
+    buf.count = arr.length / 3;
+  }
+  function lightningGeom(d, phase) {
+    var base = [], head = [];
+    if (!d || !(d.gap > 0)) return { base: base, head: head };
+    var side = d.side || 'both';
+    if (side === 'tx' || side === 'rx') return { base: base, head: head };
+    var offs = [0];
+    if (side === 'compare') {
+      var off = Math.max(40, (d.Dhous || d.OD || 250) * 0.62);
+      offs = [-off, off];
+    }
+    var y0 = -d.gap / 2, y1 = d.gap / 2;
+    var rIn = Math.max(2, (d.ID || (d.OD || 100) * 0.42) / 2);
+    var rOut = Math.max(rIn + 3, (d.OD || 100) / 2);
+    var dx = +d.dx || 0, dy = +d.dy || 0;
+    var n = 18, steps = 16;
+    function pt(s, t, off) {
+      var theta = 2 * Math.PI * s / n + (s % 3) * 0.045;
+      var rad = rIn + (rOut - rIn) * (0.18 + 0.72 * ((s * 0.61803398875) % 1));
+      var amp = Math.max(1.0, (y1 - y0) * 0.15);
+      var k = Math.round(t * steps);
+      var jr = ((k % 2) ? 1 : -1) * amp * (0.45 + 0.55 * Math.abs(Math.sin(t * 13.0 + phase * 3.2 + s * 1.7)));
+      var jt = ((k % 3) ? -1 : 1) * amp * 0.55 * (0.45 + 0.55 * Math.abs(Math.cos(t * 17.0 + phase * 2.4 + s * 2.1)));
+      var r = rad + jr;
+      return [
+        off + r * Math.cos(theta) - jt * Math.sin(theta) + dx * t,
+        y0 + (y1 - y0) * t,
+        r * Math.sin(theta) + jt * Math.cos(theta) + dy * t
+      ];
+    }
+    offs.forEach(function (off) {
+      for (var s = 0; s < n; s++) {
+        var prev = pt(s, 0, off);
+        for (var i = 1; i <= steps; i++) {
+          var cur = pt(s, i / steps, off);
+          base.push(prev[0], prev[1], prev[2], cur[0], cur[1], cur[2]);
+          prev = cur;
+        }
+        // 交叉分枝，避免看起来像正弦波
+        if (s % 3 === 0) {
+          var ba = pt(s, 0.42, off), bb = pt((s + 2) % n, 0.58, off);
+          base.push(ba[0], ba[1], ba[2], bb[0], bb[1], bb[2]);
+        }
+        var th = (phase * 0.22 + s * 0.137) % 1;
+        var t0 = Math.max(0, th - 0.055), t1 = Math.min(1, th + 0.055);
+        if (t1 > t0) {
+          var a = pt(s, t0, off), b = pt(s, t1, off);
+          head.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+        }
+      }
+    });
+    return { base: base, head: head };
+  }
   function makeGrid(ymin, span) {
     var p = [], n = [], G = Math.max(240, Math.ceil(span / 50) * 50), step = G / 10, i;
     function line(x1, z1, x2, z2) {
@@ -103,11 +169,23 @@
   function updateFit() {
     var aspect = (VIEW.w || 640) / (VIEW.h || 480);
     var fov = 38 * DEG;
-    var hfov = 2 * Math.atan(Math.tan(fov / 2) * Math.max(0.25, aspect));
-    var half = Math.min(fov, hfov) / 2;
-    VIEW.fitDist = VIEW.fitRadius / Math.max(0.12, Math.sin(half)) * 0.94;
-    var R = VIEW.ortho && VIEW.orthoR ? VIEW.orthoR : VIEW.fitRadius;
-    VIEW.fitOrtho = R * 1.06 / Math.min(1, aspect);
+    var ex = (VIEW.ext[0] || 0) / 2, ey = (VIEW.ext[1] || 0) / 2, ez = (VIEW.ext[2] || 0) / 2;
+    if (ex + ey + ez <= 0) {
+      VIEW.fitDist = VIEW.fitRadius / Math.max(0.12, Math.sin(fov / 2)) * 0.94;
+      VIEW.fitOrtho = VIEW.fitRadius * 1.06 / Math.min(1, aspect);
+      return;
+    }
+    var cp = Math.cos(VIEW.pitch), sp = Math.sin(VIEW.pitch);
+    var fx = -cp * Math.sin(VIEW.yaw), fy = -sp, fz = -cp * Math.cos(VIEW.yaw);
+    var uw = Math.abs(sp) > 0.995 ? [0, 0, -1] : [0, 1, 0];
+    var rx = fy * uw[2] - fz * uw[1], ry = fz * uw[0] - fx * uw[2], rz = fx * uw[1] - fy * uw[0];
+    var rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+    var ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+    var halfW = Math.abs(rx) * ex + Math.abs(ry) * ey + Math.abs(rz) * ez;
+    var halfH = Math.abs(ux) * ex + Math.abs(uy) * ey + Math.abs(uz) * ez;
+    var tanY = Math.tan(fov / 2), tanX = tanY * Math.max(0.25, aspect);
+    VIEW.fitDist = Math.max(halfH / Math.max(0.12, tanY), halfW / Math.max(0.12, tanX)) * 1.035;
+    VIEW.fitOrtho = Math.max(halfH, halfW / Math.max(0.25, aspect)) * 1.035;
   }
   function applyZoom() {
     VIEW.dist = VIEW.fitDist / VIEW.zoom;
@@ -161,12 +239,30 @@
     gl.enable(gl.BLEND); gl.depthMask(false);
     for (i = 0; i < GL.buffers.length; i++) if (GL.buffers[i].glass) drawBuf(GL.buffers[i], cam, null, false);
     gl.depthMask(true); gl.disable(gl.BLEND);
+    if (VIEW.flow && VIEW.d) {
+      ensureLightBufs();
+      var lg = lightningGeom(VIEW.d, VIEW.flowPhase);
+      updateLightBuf(GL.lightBase, lg.base);
+      updateLightBuf(GL.lightHead, lg.head);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.disable(gl.DEPTH_TEST);
+      gl.depthMask(false);
+      drawBuf(GL.lightBase, cam, 0.55, true);
+      drawBuf(GL.lightHead, cam, 1.0, true);
+      gl.depthMask(true);
+      gl.enable(gl.DEPTH_TEST);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.disable(gl.BLEND);
+    }
     drawOverlay(cam);
   }
 
   function resizeGL() {
     if (!GL) return;
     ensureSize();
+    updateFit();
+    applyZoom();
     drawGL();
   }
 

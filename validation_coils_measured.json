@@ -12,7 +12,7 @@
         "turns": 23,
         "litz_outer_OD_mm": 1.8,
         "lead_length_mm": 80,
-        "lead_note": "未说明 80 mm 是总长还是每根；按总长 80 mm 与每根 80 mm 两种都给出范围"
+        "lead_note": "每根 80 mm（线头到线圈最外径边缘；中间出线跨过半环后到外环边缘）"
       },
       "measured": {
         "Ls_uH": 31.368,
@@ -34,14 +34,13 @@
       "estimated_copper": {
         "mean_turn_length_mm": 215.2,
         "wire_length_m": 4.9496,
-        "wire_plus_lead_m": [5.0296, 5.1096],
-        "copper_area_mm2": [1.008, 1.0241]
+        "wire_plus_lead_m": 5.1096,
+        "copper_area_mm2": 1.0241
       },
       "litz_candidates": [
-        {"strands": 128, "strand_d_mm": 0.10, "copper_area_mm2": 1.005, "fit": "DCR 总长 80 mm 假设"},
-        {"strands": 130, "strand_d_mm": 0.10, "copper_area_mm2": 1.021, "fit": "DCR 每根 80 mm 假设；AC/DC 更接近"},
-        {"strands": 200, "strand_d_mm": 0.08, "copper_area_mm2": 1.005, "fit": "DCR 总长 80 mm 假设"},
-        {"strands": 204, "strand_d_mm": 0.08, "copper_area_mm2": 1.025, "fit": "DCR 每根 80 mm 假设"}
+        {"strands": 130, "strand_d_mm": 0.10, "copper_area_mm2": 1.021, "fit": "与 1.024 mm² 几乎精确；AC/DC 更接近"},
+        {"strands": 204, "strand_d_mm": 0.08, "copper_area_mm2": 1.025, "fit": "铜截面同样匹配，AC/DC 预计略低"},
+        {"strands": 200, "strand_d_mm": 0.08, "copper_area_mm2": 1.005, "fit": "接近；若供应商按 200 股标准线则可能"}
       ],
       "page_analytic": {"L_uH": 38.2, "deviation_pct": 21.8},
       "maxwell_3d": {

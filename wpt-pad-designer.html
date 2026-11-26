@@ -502,6 +502,8 @@ body.simLocked .side{pointer-events:none}
   background:color-mix(in srgb,var(--panel2) 86%,transparent);border:1px solid var(--brand2);
   border-radius:99px;padding:2px 8px}
 @keyframes cfflow{to{stroke-dashoffset:-25}}
+/* 旧的三条 SVG 波浪已被 3D 闪电电流替代，保留节点但不再显示 */
+.chargeflow{display:none!important}
 .sim2d{display:none;position:absolute;inset:27px 0 0;pointer-events:none;overflow:hidden}
 .xview.simulating .sim2d{display:block}
 .sim2d b{position:absolute;left:9px;top:7px;z-index:2;font-size:9.5px;font-weight:500;color:var(--brand);
@@ -1231,6 +1233,9 @@ body.simLocked .side{pointer-events:none}
       <div class="subhd"><i></i><span>公开功率等级案例</span></div>
       <table class="tbl" id="benchTbl"></table>
       <div class="note" id="benchNote" style="margin-top:6px"></div>
+      <div class="subhd" style="margin-top:8px"><i></i><span>自建样品测试标准</span></div>
+      <table class="tbl" id="sampleTbl"></table>
+      <div class="note" id="sampleNote" style="margin-top:6px">两组实测线圈作为自建样品基准：DCR 反推 Litz 约 130×0.1 / 160×0.1 mm；3D 单侧 TX 复核线圈本体偏差约 −1.4%，含引线约 −2.3%。仅作仿真可信度基准，不替代样机签收。</div>
       <div class="subhd" style="margin-top:8px"><i></i><span>当前数据来源等级</span></div>
       <table class="tbl" id="credTbl"></table>
       <div class="note" id="credNote" style="margin-top:6px"></div>
@@ -1277,6 +1282,13 @@ body.simLocked .side{pointer-events:none}
             <div class="grid2" id="fem3dImages"></div>
             <div id="fem3dLinks" class="row" style="flex-wrap:wrap;margin-top:7px"></div>
           </div>
+          <div class="subhd" style="margin-top:10px"><i></i><span>温度场图（Icepak / 外部）</span></div>
+          <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:5px">
+            <button class="btn mini" id="thermalPick">导入温度图</button>
+            <input type="file" id="thermalFile" accept="image/*" multiple style="display:none">
+            <span class="note" id="thermalNote" style="margin:0">电磁图由 3D 求解自动导出；Icepak 温度 PNG 可在此导入，随结果一起查看。</span>
+          </div>
+          <div class="grid2" id="thermalImages"></div>
           <div class="note" style="margin-top:8px">3D 求解会回填 L / M / k 并写入 PDF；单次约 1–3 分钟，可中止等待。DDQ/BP 的 Q/内外环 3D 尚未接入，不冒充 3D 结果。3D 截图/场图需要 AEDT 图形模式，无图形会话时只返回 L/M/k。</div>
         </div>
       </div>
@@ -1646,6 +1658,7 @@ body.simLocked .side{pointer-events:none}
     explode: 0, ann: true, dims: true, xray: false, target: [0, 0, 0], dist: 900,
     fitDist: 900, fitOrtho: 260, fitRadius: 200, center: [0, 0, 0], ext: [0, 0, 0], orthoR: 0,
     meshes: [], labels: [], grid: null, tilt: 0, dx: 0, dy: 0,
+    flow: false, flowPhase: 0, flowRAF: 0,
     gl: null, raf: 0, booted: false
   };
   var TH_KEYS = ['shell', 'coil', 'ins', 'fer', 'tim', 'alu', 'fin'];
@@ -2460,7 +2473,7 @@ body.simLocked .side{pointer-events:none}
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
       gl.useProgram(p);
       GL = {
-        gl: gl, prog: p, buffers: [], grid: null,
+        gl: gl, prog: p, buffers: [], grid: null, lightBase: null, lightHead: null,
         loc: {
           aPos: gl.getAttribLocation(p, 'aPos'), aNrm: gl.getAttribLocation(p, 'aNrm'),
           uVP: gl.getUniformLocation(p, 'uVP'), uEye: gl.getUniformLocation(p, 'uEye'),
@@ -2489,6 +2502,72 @@ body.simLocked .side{pointer-events:none}
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.n), gl.STATIC_DRAW);
     return { pb: pb, nb: nb, count: mesh.p.length / 3, col: hexRgb(mesh.col), alpha: mesh.alpha, glass: mesh.glass, k: mesh.k, mode: 'TRIANGLES' };
   }
+
+  function ensureLightBufs() {
+    if (GL.lightBase) return;
+    GL.lightBase = { pb: GL.gl.createBuffer(), nb: GL.gl.createBuffer(), col: [0.10, 0.72, 1.0], alpha: 0.55, mode: 'LINES', count: 0, glass: false };
+    GL.lightHead = { pb: GL.gl.createBuffer(), nb: GL.gl.createBuffer(), col: [0.82, 0.97, 1.0], alpha: 1.0, mode: 'LINES', count: 0, glass: false };
+  }
+  function updateLightBuf(buf, arr) {
+    var gl = GL.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf.pb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf.nb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr.length), gl.DYNAMIC_DRAW);
+    buf.count = arr.length / 3;
+  }
+  function lightningGeom(d, phase) {
+    var base = [], head = [];
+    if (!d || !(d.gap > 0)) return { base: base, head: head };
+    var side = d.side || 'both';
+    if (side === 'tx' || side === 'rx') return { base: base, head: head };
+    var offs = [0];
+    if (side === 'compare') {
+      var off = Math.max(40, (d.Dhous || d.OD || 250) * 0.62);
+      offs = [-off, off];
+    }
+    var y0 = -d.gap / 2, y1 = d.gap / 2;
+    var rIn = Math.max(2, (d.ID || (d.OD || 100) * 0.42) / 2);
+    var rOut = Math.max(rIn + 3, (d.OD || 100) / 2);
+    var dx = +d.dx || 0, dy = +d.dy || 0;
+    var n = 18, steps = 16;
+    function pt(s, t, off) {
+      var theta = 2 * Math.PI * s / n + (s % 3) * 0.045;
+      var rad = rIn + (rOut - rIn) * (0.18 + 0.72 * ((s * 0.61803398875) % 1));
+      var amp = Math.max(1.0, (y1 - y0) * 0.15);
+      var k = Math.round(t * steps);
+      var jr = ((k % 2) ? 1 : -1) * amp * (0.45 + 0.55 * Math.abs(Math.sin(t * 13.0 + phase * 3.2 + s * 1.7)));
+      var jt = ((k % 3) ? -1 : 1) * amp * 0.55 * (0.45 + 0.55 * Math.abs(Math.cos(t * 17.0 + phase * 2.4 + s * 2.1)));
+      var r = rad + jr;
+      return [
+        off + r * Math.cos(theta) - jt * Math.sin(theta) + dx * t,
+        y0 + (y1 - y0) * t,
+        r * Math.sin(theta) + jt * Math.cos(theta) + dy * t
+      ];
+    }
+    offs.forEach(function (off) {
+      for (var s = 0; s < n; s++) {
+        var prev = pt(s, 0, off);
+        for (var i = 1; i <= steps; i++) {
+          var cur = pt(s, i / steps, off);
+          base.push(prev[0], prev[1], prev[2], cur[0], cur[1], cur[2]);
+          prev = cur;
+        }
+        // 交叉分枝，避免看起来像正弦波
+        if (s % 3 === 0) {
+          var ba = pt(s, 0.42, off), bb = pt((s + 2) % n, 0.58, off);
+          base.push(ba[0], ba[1], ba[2], bb[0], bb[1], bb[2]);
+        }
+        var th = (phase * 0.22 + s * 0.137) % 1;
+        var t0 = Math.max(0, th - 0.055), t1 = Math.min(1, th + 0.055);
+        if (t1 > t0) {
+          var a = pt(s, t0, off), b = pt(s, t1, off);
+          head.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+        }
+      }
+    });
+    return { base: base, head: head };
+  }
   function makeGrid(ymin, span) {
     var p = [], n = [], G = Math.max(240, Math.ceil(span / 50) * 50), step = G / 10, i;
     function line(x1, z1, x2, z2) {
@@ -2515,11 +2594,23 @@ body.simLocked .side{pointer-events:none}
   function updateFit() {
     var aspect = (VIEW.w || 640) / (VIEW.h || 480);
     var fov = 38 * DEG;
-    var hfov = 2 * Math.atan(Math.tan(fov / 2) * Math.max(0.25, aspect));
-    var half = Math.min(fov, hfov) / 2;
-    VIEW.fitDist = VIEW.fitRadius / Math.max(0.12, Math.sin(half)) * 0.94;
-    var R = VIEW.ortho && VIEW.orthoR ? VIEW.orthoR : VIEW.fitRadius;
-    VIEW.fitOrtho = R * 1.06 / Math.min(1, aspect);
+    var ex = (VIEW.ext[0] || 0) / 2, ey = (VIEW.ext[1] || 0) / 2, ez = (VIEW.ext[2] || 0) / 2;
+    if (ex + ey + ez <= 0) {
+      VIEW.fitDist = VIEW.fitRadius / Math.max(0.12, Math.sin(fov / 2)) * 0.94;
+      VIEW.fitOrtho = VIEW.fitRadius * 1.06 / Math.min(1, aspect);
+      return;
+    }
+    var cp = Math.cos(VIEW.pitch), sp = Math.sin(VIEW.pitch);
+    var fx = -cp * Math.sin(VIEW.yaw), fy = -sp, fz = -cp * Math.cos(VIEW.yaw);
+    var uw = Math.abs(sp) > 0.995 ? [0, 0, -1] : [0, 1, 0];
+    var rx = fy * uw[2] - fz * uw[1], ry = fz * uw[0] - fx * uw[2], rz = fx * uw[1] - fy * uw[0];
+    var rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+    var ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+    var halfW = Math.abs(rx) * ex + Math.abs(ry) * ey + Math.abs(rz) * ez;
+    var halfH = Math.abs(ux) * ex + Math.abs(uy) * ey + Math.abs(uz) * ez;
+    var tanY = Math.tan(fov / 2), tanX = tanY * Math.max(0.25, aspect);
+    VIEW.fitDist = Math.max(halfH / Math.max(0.12, tanY), halfW / Math.max(0.12, tanX)) * 1.035;
+    VIEW.fitOrtho = Math.max(halfH, halfW / Math.max(0.25, aspect)) * 1.035;
   }
   function applyZoom() {
     VIEW.dist = VIEW.fitDist / VIEW.zoom;
@@ -2573,12 +2664,30 @@ body.simLocked .side{pointer-events:none}
     gl.enable(gl.BLEND); gl.depthMask(false);
     for (i = 0; i < GL.buffers.length; i++) if (GL.buffers[i].glass) drawBuf(GL.buffers[i], cam, null, false);
     gl.depthMask(true); gl.disable(gl.BLEND);
+    if (VIEW.flow && VIEW.d) {
+      ensureLightBufs();
+      var lg = lightningGeom(VIEW.d, VIEW.flowPhase);
+      updateLightBuf(GL.lightBase, lg.base);
+      updateLightBuf(GL.lightHead, lg.head);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.disable(gl.DEPTH_TEST);
+      gl.depthMask(false);
+      drawBuf(GL.lightBase, cam, 0.55, true);
+      drawBuf(GL.lightHead, cam, 1.0, true);
+      gl.depthMask(true);
+      gl.enable(gl.DEPTH_TEST);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.disable(gl.BLEND);
+    }
     drawOverlay(cam);
   }
 
   function resizeGL() {
     if (!GL) return;
     ensureSize();
+    updateFit();
+    applyZoom();
     drawGL();
   }
 
@@ -2821,7 +2930,7 @@ body.simLocked .side{pointer-events:none}
     else VIEW.orthoR = 0;
     updateFit();
     /* 立体视图默认放大一点，减少 3D 舞台上下空白；正视/侧视/顶视保持全尺寸不裁切 */
-    VIEW.zoom = (k === 'iso' && asp >= 1.12) ? 1.22 : 1;
+    VIEW.zoom = 1;
     applyZoom();
     var vs = el('viewset');
     if (vs) Array.prototype.forEach.call(vs.children, function (b) {
@@ -2865,6 +2974,7 @@ body.simLocked .side{pointer-events:none}
           VIEW.pitch = clamp(VIEW.pitch + dy * 0.006, -1.45, 1.45);
           var vs = el('viewset');
           if (vs) Array.prototype.forEach.call(vs.children, function (b) { b.classList.remove('on'); });
+          updateFit(); applyZoom();
           drawGL();
         }
       });
@@ -2942,7 +3052,7 @@ body.simLocked .side{pointer-events:none}
       if (ensureSize()) { /* sized */ } else { updateFit(); applyZoom(); }
       if (!VIEW.booted) {
         VIEW.booted = true;
-        if ((VIEW.w || 640) / (VIEW.h || 480) >= 1.12) { VIEW.zoom = 1.22; applyZoom(); }
+        if ((VIEW.w || 640) / (VIEW.h || 480) >= 1.12) { VIEW.zoom = 1; applyZoom(); }
       }
       drawGL();
     } else {
@@ -2989,9 +3099,28 @@ body.simLocked .side{pointer-events:none}
     return out;
   }
 
+  function setFlow(on) {
+    VIEW.flow = !!on;
+    if (on) {
+      if (!VIEW.flowRAF) {
+        var tick = function (ts) {
+          if (!VIEW.flow) { VIEW.flowRAF = 0; return; }
+          VIEW.flowPhase = (ts || 0) * 0.001;
+          drawGL();
+          VIEW.flowRAF = requestAnimationFrame(tick);
+        };
+        VIEW.flowRAF = requestAnimationFrame(tick);
+      }
+    } else {
+      if (VIEW.flowRAF) { cancelAnimationFrame(VIEW.flowRAF); VIEW.flowRAF = 0; }
+      drawGL();
+    }
+  }
+
   window.WPTView = {
     update: update,
     setView: setView,
+    setFlow: setFlow,
     captureReport: captureReport,
     resize: function () { resizeGL(); },
     get view() { return VIEW; }
@@ -3841,6 +3970,15 @@ function update(preserveResults){
   }
 
   {
+    const rows=[
+      ['线圈 1','无磁板<br>Ø107 / Ø30 · 23 匝 · Litz≈130×0.1','31.368 µH<br>86.02 mΩ · Q168','30.94 µH（线圈本体）','−1.4%'],
+      ['线圈 2','PC95 100×100×5<br>Ø98 / Ø48 · 15 匝 · Litz≈160×0.1','33.241 µH<br>51.94 mΩ · Q250','≈32.5 µH（含引线）','−2.3%']
+    ];
+    $('sampleTbl').innerHTML='<tr><th>样品</th><th>结构 / 线材</th><th>实测 Ls / DCR / Q</th><th>WPT.pad 3D</th><th>偏差</th></tr>'+
+      rows.map(r=>`<tr><td><b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td><span class="tag ok">${r[4]}</span></td></tr>`).join('');
+  }
+
+  {
     const has2d=!!state.fem, has3d=!!state.fem3d;
     const femWp=!!(state.fem&&state.fem.loss_operating_valid);
     const nonAxis=!!state.last&&(state.last.shape==='sq'||state.last.shape==='rect');
@@ -4024,6 +4162,7 @@ function syncFerUI(){
   if($('ferR')){
     const fs=Math.max(40,+$('ferSize').value||300), maxR=fs/2;
     $('ferR').max=maxR;
+    if($('ferR_num')) $('ferR_num').max=maxR;
     if(+$('ferR').value>maxR) $('ferR').value=maxR;
     $('ferR').disabled=!on||shape!=='square';
     if($('ferRv')) $('ferRv').textContent=(+$('ferR').value).toFixed(1)+' mm';
@@ -4239,6 +4378,24 @@ if($('nt_num')) $('nt_num').disabled=$('autoN').checked;
 $('ferMat').addEventListener('change',update);
 $('aluMat').addEventListener('change',update);
 
+/* ---- 温度场图导入（Icepak 等外部 PNG） ---- */
+(function initThermalGallery(){
+  const pick=document.getElementById('thermalPick'), file=document.getElementById('thermalFile'),
+        box=document.getElementById('thermalImages');
+  if(!pick||!file||!box) return;
+  pick.addEventListener('click',()=>file.click());
+  file.addEventListener('change',()=>{
+    [...file.files].forEach(f=>{
+      const url=URL.createObjectURL(f);
+      const div=document.createElement('div');
+      div.className='auditImgWrap';
+      div.innerHTML=`<a href="${url}" target="_blank"><img class="auditImg" src="${url}" alt="${f.name}"></a><small>${f.name}</small>`;
+      box.appendChild(div);
+    });
+    file.value='';
+  });
+})();
+
 /* ---- 仿真/计算动态效果 ---- */
 let simTimer=null,simClock=null,simDoneTimer=null,simT0=0;
 function simStart(label,sub,ms,opt){
@@ -4246,6 +4403,7 @@ function simStart(label,sub,ms,opt){
   const fx=document.getElementById('simFx'); if(!fx) return;
   fx.classList.add('on');
   fx.classList.toggle('flow',!!opt.flow);
+  if(window.WPTView&&WPTView.setFlow) WPTView.setFlow(!!opt.flow);
   const l=document.getElementById('simLabel'); if(l) l.textContent=label||'正在仿真计算';
   const s=document.getElementById('simSub'); if(s) s.textContent=sub||'TX → RX · 输出电流';
   const el=document.getElementById('simElapsed');
@@ -4270,6 +4428,7 @@ function simStart(label,sub,ms,opt){
 function simStop(){
   const fx=document.getElementById('simFx');
   if(fx) fx.classList.remove('on','flow');
+  if(window.WPTView&&WPTView.setFlow) WPTView.setFlow(false);
   document.querySelectorAll('.xview').forEach(v=>v.classList.remove('simulating'));
   clearTimeout(simTimer); simTimer=null;
   clearInterval(simClock); simClock=null;
@@ -4738,11 +4897,12 @@ function render3d(r){
   const au=r.audit, gal=$('fem3dGallery');
   if(au&&au.artifacts&&Object.keys(au.artifacts).length){
     const base=API+(au.base_url||'');
-    const views=[['model','3D 模型几何'],['B_ferrite_0deg','3D 磁板 B 云图 · 0°'],['B_ferrite_90deg','3D 磁板 B 云图 · 90°'],['B_all_0deg','3D 全模型 B 云图 · 0°']];
-    $('fem3dImages').innerHTML=views.filter(x=>au.artifacts[x[0]]).map(x=>
+    const views=[['model','3D 模型几何'],['B_ferrite_0deg','3D 磁板 B 云图 · 0°'],['B_ferrite_90deg','3D 磁板 B 云图 · 90°'],['B_all_0deg','3D 全模型 B 云图 · 等轴测'],['B_all_front','3D 全模型 B 云图 · 正视图'],['B_all_side','3D 全模型 B 云图 · 侧视图'],['B_all_top','3D 全模型 B 云图 · 顶视图']];
+    const shown=views.filter(x=>au.artifacts[x[0]]);
+    $('fem3dImages').innerHTML=shown.map(x=>
       `<div class="auditImgWrap"><a href="${base+au.artifacts[x[0]]}" target="_blank"><img class="auditImg" src="${base+au.artifacts[x[0]]}" alt="${x[1]}"></a><small>${x[1]}</small></div>`).join('');
     $('fem3dLinks').innerHTML=`<a class="btn mini" href="${base}" target="_blank">打开 3D 图像目录</a>`+
-      (au.errors&&au.errors.length?`<span class="tag warn">部分图像导出失败 ${au.errors.length} 项</span>`:'<span class="tag ok">4 张 AEDT 原始图</span>');
+      (au.errors&&au.errors.length?`<span class="tag warn">部分图像导出失败 ${au.errors.length} 项</span>`:`<span class="tag ok">${shown.length} 张 AEDT 原始图</span>`);
     gal.style.display='block';
   } else {
     gal.style.display='none';

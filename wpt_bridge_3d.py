@@ -65,10 +65,13 @@ def _export_3d_audit(m, case_id, active_objects, ferrite_objects, sweep, freq):
     except Exception as e:
         errors.append("model:%s:%s" % (type(e).__name__, str(e)[:160]))
 
-    for name, assignment, phase, kind in (
-            ("B_ferrite_0deg", ferrite_objects, "0deg", "volume"),
-            ("B_ferrite_90deg", ferrite_objects, "90deg", "volume"),
-            ("B_all_0deg", active_objects, "0deg", "surface")):
+    for name, assignment, phase, kind, orient in (
+            ("B_ferrite_0deg", ferrite_objects, "0deg", "volume", "isometric"),
+            ("B_ferrite_90deg", ferrite_objects, "90deg", "volume", "isometric"),
+            ("B_all_0deg", active_objects, "0deg", "surface", "isometric"),
+            ("B_all_front", active_objects, "0deg", "surface", "front"),
+            ("B_all_side", active_objects, "0deg", "surface", "right"),
+            ("B_all_top", active_objects, "0deg", "surface", "top")):
         try:
             try:
                 if kind == "volume":
@@ -85,7 +88,7 @@ def _export_3d_audit(m, case_id, active_objects, ferrite_objects, sweep, freq):
                     intrinsics={"Freq": "%gHz" % freq, "Phase": phase}, plot_name=name,
                     field_type="AC Magnetic Fields")
             path = os.path.join(exports, name + ".png")
-            p = m.post.export_model_picture(path, orientation="isometric", width=1800, height=1300,
+            p = m.post.export_model_picture(path, orientation=orient, width=1800, height=1300,
                 field_selections=name, selections=active_objects, show_axis=True,
                 show_grid=True, show_ruler=True, show_region=False)
             if _wait_image(p):

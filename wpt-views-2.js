@@ -4,6 +4,7 @@
     explode: 0, ann: true, dims: true, xray: false, target: [0, 0, 0], dist: 900,
     fitDist: 900, fitOrtho: 260, fitRadius: 200, center: [0, 0, 0], ext: [0, 0, 0], orthoR: 0,
     meshes: [], labels: [], grid: null, tilt: 0, dx: 0, dy: 0,
+    flow: false, flowPhase: 0, flowRAF: 0,
     gl: null, raf: 0, booted: false
   };
   var TH_KEYS = ['shell', 'coil', 'ins', 'fer', 'tim', 'alu', 'fin'];
