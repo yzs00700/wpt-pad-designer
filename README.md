@@ -108,6 +108,8 @@ Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显
 | `wpt_3d_regression.py` | 3D 圆形/DD/方形/矩形回归（`--check` / `--run`） |
 | `wpt_icepak_thermal.py` | Icepak 单侧半模型热筛查脚本（已跑通，未纳入签核） |
 | `PROJECT_STATUS.md` | 完成度审计：已验证 / 未充分测试 / 未开发清单 |
+| `COIL_MEASURED_ANALYSIS.md` | 两组小直径线圈的 DCR 反推、利兹线候选与设计器偏差 |
+| `validation_coils_measured.json` | 两组线圈实测 LCR、几何、反推铜截面与利兹线候选 |
 | `WPT_Designer_改进方案.md` | 设计取舍、建模口径与端到端实测记录 |
 | `Litz_Maxwell_验证计划.md` | Litz / Maxwell 验证计划 |
 
@@ -122,6 +124,7 @@ Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显
 | 3D 单侧 TX | L 32.92 µH；M/k 为空（单侧模型） |
 | 3D 单侧 RX | L 33.13 µH；M/k 为空（单侧模型） |
 | 3D 独立磁板形状 | 圆线圈+300×300 方板：组合 443 s，L 73.63 / M 54.56 / k 0.741；矩形线圈+Ø560 圆板：单侧 271 s，L 105.62 |
+| 小线圈实测基线 | 线圈1 无磁板 31.368 µH / DCR 86.02 mΩ；线圈2 PC95 100×100×5 33.241 µH / DCR 51.94 mΩ；DCR 反推约 130×0.1 / 160×0.1 mm |
 | 2D vs 3D | L +3.6%、M −2.0%、k −5.4%（轴对称近似的已知偏差方向） |
 | PDF | A4 14 页，附 A/附 B 各 4 张原图，无空白页；2D-only 报告明确标注未执行 3D |
 | Icepak 单侧筛查 | 低/高损耗 33.5 / 35.7 °C（TX 单侧、半模型损耗、HTC 28.3 W/m²K；非签核） |

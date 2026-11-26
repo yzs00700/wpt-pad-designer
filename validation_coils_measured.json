@@ -1,0 +1,98 @@
+{
+  "source": "用户实测 LCR 表（2026-11-26），85 kHz",
+  "note": "DCR 反推铜截面；利兹线股数/线径为估算，不是拆线计数结论。测量温度未提供，按 20 °C 铜电阻率 1.724e-8 Ω·m 计算。",
+  "coils": [
+    {
+      "id": "coil1",
+      "name": "线圈1 · 无磁板",
+      "ferrite": null,
+      "geometry": {
+        "OD_mm": 107,
+        "ID_mm": 30,
+        "turns": 23,
+        "litz_outer_OD_mm": 1.8,
+        "lead_length_mm": 80,
+        "lead_note": "未说明 80 mm 是总长还是每根；按总长 80 mm 与每根 80 mm 两种都给出范围"
+      },
+      "measured": {
+        "Ls_uH": 31.368,
+        "Rs_mohm": 99.7,
+        "Q": 168,
+        "D_pct": 0.595,
+        "theta_deg": 89.659,
+        "Z_ohm": 16.753,
+        "X_ohm": 16.753,
+        "Lp_uH": 31.369,
+        "Rp_ohm": 2814.5,
+        "G_uS": 355.3,
+        "Y_mS": 59.69,
+        "C_eq_nF": -111.77,
+        "DCR_mohm": 86.02,
+        "AC_DC": 1.16,
+        "resonance_C_nF_at_85kHz": 111.8
+      },
+      "estimated_copper": {
+        "mean_turn_length_mm": 215.2,
+        "wire_length_m": 4.9496,
+        "wire_plus_lead_m": [5.0296, 5.1096],
+        "copper_area_mm2": [1.008, 1.0241]
+      },
+      "litz_candidates": [
+        {"strands": 128, "strand_d_mm": 0.10, "copper_area_mm2": 1.005, "fit": "DCR 总长 80 mm 假设"},
+        {"strands": 130, "strand_d_mm": 0.10, "copper_area_mm2": 1.021, "fit": "DCR 每根 80 mm 假设；AC/DC 更接近"},
+        {"strands": 200, "strand_d_mm": 0.08, "copper_area_mm2": 1.005, "fit": "DCR 总长 80 mm 假设"},
+        {"strands": 204, "strand_d_mm": 0.08, "copper_area_mm2": 1.025, "fit": "DCR 每根 80 mm 假设"}
+      ],
+      "page_analytic": {"L_uH": 38.2, "deviation_pct": 21.8}
+    },
+    {
+      "id": "coil2",
+      "name": "线圈2 · PC95 100×100×5 mm",
+      "ferrite": {"material": "TDK PC95", "shape": "square", "size_mm": [100, 100], "thickness_mm": 5, "mode": "mono"},
+      "geometry": {
+        "OD_mm": 98,
+        "ID_mm": 48,
+        "turns": 15,
+        "litz_outer_OD_mm": 1.8,
+        "lead_in_mm": 230,
+        "lead_out_mm": 130
+      },
+      "measured": {
+        "Ls_uH": 33.241,
+        "Rs_mohm": 70.6,
+        "Q": 250,
+        "D_pct": 0.399,
+        "theta_deg": 89.772,
+        "Z_ohm": 17.753,
+        "X_ohm": 17.751,
+        "Lp_uH": 33.2415,
+        "Rp_ohm": 4461.7,
+        "G_uS": 224.3,
+        "Y_mS": 56.33,
+        "C_eq_nF": -105.47,
+        "DCR_mohm": 51.94,
+        "AC_DC": 1.36,
+        "resonance_C_nF_at_85kHz": 105.5
+      },
+      "estimated_copper": {
+        "mean_turn_length_mm": 229.3,
+        "wire_length_m": 3.440,
+        "wire_plus_lead_m": 3.800,
+        "copper_area_mm2": 1.2613
+      },
+      "litz_candidates": [
+        {"strands": 160, "strand_d_mm": 0.10, "copper_area_mm2": 1.257, "fit": "DCR 几乎精确；AC/DC 更接近"},
+        {"strands": 250, "strand_d_mm": 0.08, "copper_area_mm2": 1.257, "fit": "DCR 同样精确，但与 AC/DC 略偏低"}
+      ],
+      "page_analytic": {"L_uH": 41.8, "deviation_pct": 25.7}
+    }
+  ],
+  "measured_differences": {
+    "Ls_pct": 6.0,
+    "Rs_pct": -29.2,
+    "Q_pct": 48.7,
+    "DCR_pct": -39.6,
+    "AC_DC_pct": 17.3,
+    "explanation": "线圈2少 8 匝、线更短，DCR 大幅下降；PC95 磁板把 15 匝的 L 抬到 33.24 µH，比 23 匝无磁板的 31.37 µH 还高 6%。Rs 降幅小于 DCR，因为磁板使 AC/DC 从 1.16 升到 1.36。Q=ωL/Rs 因此提升约 49%。"
+  }
+}
