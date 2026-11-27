@@ -115,6 +115,7 @@ Gitee 空间地址是 [gitee.com/hello-yong](https://gitee.com/hello-yong)（显
 | `wpt_3d_regression.py` | 3D 圆形/DD/方形/矩形回归（`--check` / `--run`） |
 | `wpt_icepak_thermal.py` | Icepak 单侧半模型热筛查脚本（已跑通，未纳入签核） |
 | `PROJECT_STATUS.md` | 完成度审计：已验证 / 未充分测试 / 未开发清单 |
+| `TEST_REPORT_20261127.md` | 2026-11-27 功能测试报告（页面 / 2D / 3D / 温度 / 中止 / PDF） |
 | `COIL_MEASURED_ANALYSIS.md` | 两组小直径线圈的 DCR 反推、利兹线候选与设计器偏差 |
 | `validation_coils_measured.json` | 两组线圈实测 LCR、几何、反推铜截面与利兹线候选 |
 | `WPT_Designer_改进方案.md` | 设计取舍、建模口径与端到端实测记录 |

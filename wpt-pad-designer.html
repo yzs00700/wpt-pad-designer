@@ -3637,7 +3637,7 @@ function computeCore(inp){
     {n:'30 cm 磁密（公众暴露）',v:B300.toFixed(0)+' µT',lim:'≤ 27 µT（ICNIRP）',ok:B300<=27}
   ];
 
-  return {P,shape,ddType,ddL,ddW,gap:g,freq:inp.freq,app:inp.app,OD,ID,Dfer,DferL,Dalu,DaluL,Dhous,DhousL,N,tile,nTile,nTileX,nTileZ,gapTile,
+  return {P,shape,side:inp.side,ddType,ddL,ddW,gap:g,freq:inp.freq,app:inp.app,OD,ID,Dfer,DferL,Dalu,DaluL,Dhous,DhousL,N,tile,nTile,nTileX,nTileZ,gapTile,
     ferMode,ferShape,ferAuto,ferSize,ferR,
     tf:TF,ta:TA,ferMat:inp.ferMat,aluMat:inp.aluMat,ferOn,aluOn,
     dx,dy,delta,fmis:fmisVal,misDecay,gEff,tilt,
